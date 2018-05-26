@@ -118,6 +118,22 @@ class FoodDataset(Dataset):
 
 
 
+	
+	
+class H5Dataset(Dataset):
+
+    def __init__(self, file_path):
+        super(H5Dataset, self).__init__()
+        h5_file = h5py.File(file_path)
+        self.data = h5_file.get('data')
+        self.target = h5_file.get('labels')
+
+    def __getitem__(self, index):            
+        return (torch.from_numpy(self.data[index,:,:,:]).float(),
+                torch.from_numpy(self.target[index,:,:,:]).float())
+
+    def __len__(self):
+        return self.data.shape[0]
 
 
 
@@ -181,8 +197,10 @@ def main():
 	
 	#transformations = transforms.Compose([transforms.ToTensor()])
 
-	train_dataset =  FoodDataset(train_data_path, train_label, transform= transform_train)
-	val_dataset =  FoodDataset(val_data_path, val_label, transform= None)
+	
+	train_h5 = "/home/mil/gupta/ifood18/data/h5data/train_data.h5py"
+	train_dataset =  H5Dataset(train_h5)
+	val_dataset =  H5Dataset(val_data_path, val_label, transform= None)
 	
 
 	
@@ -192,9 +210,9 @@ def main():
 	#                         28, 28,
 	#                         transformations)
 
-	train_loader = torch.utils.data.DataLoader(dataset=train_dataset, batch_size=256, shuffle= True, num_workers=8, pin_memory=True, sampler=None)
+	train_loader = torch.utils.data.DataLoader(dataset=train_dataset, batch_size=256, shuffle= True, num_workers=1, pin_memory=True, sampler=None)
 
-	val_loader = torch.utils.data.DataLoader(dataset=val_dataset,batch_size=256,num_workers=8,shuffle=True)
+	val_loader = torch.utils.data.DataLoader(dataset=val_dataset,batch_size=256,num_workers=1,shuffle=True)
 	
 	
 	
