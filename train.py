@@ -19,7 +19,7 @@ import argparse
 import os
 import shutil
 import time
-
+import h5py
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.nn.parallel
@@ -37,9 +37,9 @@ import warnings
 warnings.filterwarnings("ignore")
 # used for logging to TensorBoard
 from tensorboard_logger import configure, log_value
-import torch
-import torch.multiprocessing
-torch.multiprocessing.set_start_method('spawn')
+#import torch
+#import torch.multiprocessing
+#torch.multiprocessing.set_start_method('spawn')
 
 parser = argparse.ArgumentParser(description='PyTorch WideResNet Training')
 parser.add_argument('--dataset', default='ci', type=str,
@@ -122,18 +122,26 @@ class FoodDataset(Dataset):
 	
 class H5Dataset(Dataset):
 
-    def __init__(self, file_path):
-        super(H5Dataset, self).__init__()
-        h5_file = h5py.File(file_path)
-        self.data = h5_file.get('data')
-        self.target = h5_file.get('labels')
+	def __init__(self, file_path):
+		super(H5Dataset, self).__init__()
+		h5_file = h5py.File(file_path)
+		self.data = h5_file.get('data')
+		self.target = h5_file.get('labels')
+		#f = h5py.File("foo.hdf5", "r")
+		#set1 = np.asarray(h5_file["foo/bar"])
+		#self.data = h5_file["data"]
+		#self.labels = h5_file["labels"]
+		#print(self.data.shape)
+		#print(type(self.data))
+		#var3 = set1["var3"]
+		
+		
+	def __getitem__(self, index):            
+		return (torch.from_numpy(self.data[index,:,:,:]),
+				torch.from_numpy(np.array(self.target[index])))
 
-    def __getitem__(self, index):            
-        return (torch.from_numpy(self.data[index,:,:,:]).float(),
-                torch.from_numpy(self.target[index,:,:,:]).float())
-
-    def __len__(self):
-        return self.data.shape[0]
+	def __len__(self):
+		return self.data.shape[0]
 
 
 
@@ -155,37 +163,37 @@ def main():
 		
 		
 	# Data loading code
-	normalize = transforms.Normalize(mean=[x/255.0 for x in [125.3, 123.0, 113.9]],
-									 std=[x/255.0 for x in [63.0, 62.1, 66.7]])
+	# normalize = transforms.Normalize(mean=[x/255.0 for x in [125.3, 123.0, 113.9]],
+	#								 std=[x/255.0 for x in [63.0, 62.1, 66.7]])
 
-	if args.augment:
-		transform_train = transforms.Compose([
-			transforms.Resize(256,256),
-			transforms.ToTensor(),
-			transforms.Lambda(lambda x: F.pad(
-								Variable(x.unsqueeze(0), requires_grad=False, volatile=True),
-								(4,4,4,4),mode='reflect').data.squeeze()),
-			transforms.ToPILImage(),
-			transforms.RandomCrop(32),
-			transforms.RandomHorizontalFlip(),
-			transforms.ToTensor(),
-			normalize,
-			])
-	else:
-		transform_train = transforms.Compose([
-			transforms.ToTensor(),
-			normalize,
-			])
+# 	if args.augment:
+# 		transform_train = transforms.Compose([
+# 			transforms.Resize(256,256),
+# 			transforms.ToTensor(),
+# 			transforms.Lambda(lambda x: F.pad(
+# 								Variable(x.unsqueeze(0), requires_grad=False, volatile=True),
+# 								(4,4,4,4),mode='reflect').data.squeeze()),
+# 			transforms.ToPILImage(),
+# 			transforms.RandomCrop(32),
+# 			transforms.RandomHorizontalFlip(),
+# 			transforms.ToTensor(),
+# 			normalize,
+# 			])
+# 	else:
+# 		transform_train = transforms.Compose([
+# 			transforms.ToTensor(),
+# 			normalize,
+# 			])
 	
-	transform_test = transforms.Compose([
-		transforms.ToTensor(),
-		normalize
-		])
+# 	transform_test = transforms.Compose([
+# 		transforms.ToTensor(),
+# 		normalize
+# 		])
 
 	
 	
 	
-	kwargs = {'num_workers': 4, 'pin_memory': True}
+	#kwargs = {'num_workers': 1, 'pin_memory': True}
 	#assert(args.dataset == 'cifar10' or args.dataset == 'cifar100')
 	
 	train_data_path ="/home/mil/gupta/ifood18/data/training_set/train_set/"
@@ -198,9 +206,10 @@ def main():
 	#transformations = transforms.Compose([transforms.ToTensor()])
 
 	
-	train_h5 = "/home/mil/gupta/ifood18/data/h5data/train_data.h5py"
+	# train_h5 = "/home/mil/gupta/ifood18/data/h5data/train_data.h5py"
+	train_h5 =  "/home/mil/gupta/ifood18/data/h5data/train_data_partial.h5py"
 	train_dataset =  H5Dataset(train_h5)
-	val_dataset =  H5Dataset(val_data_path, val_label, transform= None)
+	#val_dataset =  H5Dataset(val_data_path, val_label, transform= None)
 	
 
 	
@@ -210,9 +219,9 @@ def main():
 	#                         28, 28,
 	#                         transformations)
 
-	train_loader = torch.utils.data.DataLoader(dataset=train_dataset, batch_size=256, shuffle= True, num_workers=1, pin_memory=True, sampler=None)
+	train_loader = torch.utils.data.DataLoader(dataset=train_dataset, batch_size=64, shuffle= True, num_workers=1)
 
-	val_loader = torch.utils.data.DataLoader(dataset=val_dataset,batch_size=256,num_workers=1,shuffle=True)
+	#val_loader = torch.utils.data.DataLoader(dataset=val_dataset,batch_size=256,num_workers=1,shuffle=True)
 	
 	
 	
@@ -328,16 +337,17 @@ def train(train_loader, model, criterion, optimizer, epoch):
 		
 # 		#t =  input()
 		
-		
-		target = target.cuda(async=True)
+		print(inp.shape)
+		tttt =input()
+		target = target.type(torch.LongTensor).cuda(async=True)
 		inp = inp.cuda()
 		
 		input_var = torch.autograd.Variable(inp)
 		target_var = torch.autograd.Variable(target)
-
-
+		
 		# compute output
 		output = model(input_var)
+		print("output shape: ",output.shape)
 		loss = criterion(output, target_var)
 		# print(loss)
 		# print(loss.shape)
@@ -481,22 +491,22 @@ def accuracy(output, target, topk=(1,)):
 	maxk = max(topk)
 	batch_size = target.size(0)
 
-	# print("Output is : ", output)
-	# print(output.shape)
+	print("Output is : ", output)
+	print(output.shape)
 	_, pred = output.topk(maxk, 1, True, True)
 	
-	# print(pred)
-	# print(pred.shape)
-	#i =input()
+	print(pred)
+	print(pred.shape)
+	i =input()
 	
 	pred = pred.t()
-	# print("target" , target.view(1, -1).expand_as(pred))
-	# print(target.shape)
-	# print("\n\n\n\n")
+	print("target" , target.view(1, -1).expand_as(pred))
+	print(target.shape)
+	print("\n\n\n\n")
 	correct = pred.eq(target.view(1, -1).expand_as(pred))
-	# print(correct)
-	# print(correct.shape)
-	# #inp3 =input() 
+	print(correct)
+	print(correct.shape)
+	inp3 =input() 
 	res = []
 	for k in topk:
 		correct_k = correct[:k].view(-1).float().sum(0)
@@ -505,13 +515,14 @@ def accuracy(output, target, topk=(1,)):
 		res.append(correct_k.mul_(100.0 / batch_size))
 		
 		
-	# print(res)
-	# print("\n\n")
-	# print(res[0])
-	# print("all done")
-	# ii =input()
+	print(res)
+	print("\n\n")
+	print(res[0])
+	print("all done")
+	ii =input()
 	return res
 
 if __name__ == '__main__':
-	#import torch.multiprocessing.set_start_method("spawn")
+	
+	# torch.multiprocessing.set_start_method("spawn", force=True)
 	main()
