@@ -13,8 +13,13 @@ from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms, utils
 
 from tqdm import tqdm
-
+import cv2
 from PIL import Image
+		
+		
+from resizeimage import resizeimage
+
+
 import argparse
 import os
 import shutil
@@ -25,10 +30,9 @@ import torch.nn.functional as F
 import torch.nn.parallel
 import torch.backends.cudnn as cudnn
 import torch.optim
-# import torch.utils.data
-# import torchvision.transforms as transforms
-# import torchvision.datasets as datasets
 from torch.autograd import Variable
+
+from skimage import io, transform
 
 from wideresnet import WideResNet
 
@@ -77,12 +81,11 @@ parser.add_argument('--validate_freq', '-valf', default=200, type=int,
 					help='validate frequency (default: 100)')
 
 
+
+
 parser.set_defaults(augment=True)
 
 best_prec3 = 0
-
-
-
 
 
 
@@ -96,7 +99,15 @@ class FoodDataset(Dataset):
 			transform (callable, optional): Optional transform to be applied
 				on a sample.
 		"""
-		self.labels = pd.read_csv(csv_file)
+		# self.labels = pd.read_csv(csv_file)
+		
+		data = pd.read_csv(csv_file, header=None , names= ["name_of_pic" , "noisy_label"])
+		#print(selfdata.head())
+		self.labels = data.noisy_label.tolist()
+		# read addresses and labels from the 'train' folder
+		self.pic_names = data.name_of_pic.tolist()
+		# print("Length of val data is : ",len(val_data))
+		
 		self.root_dir = root_dir
 		self.transform = transform
 
@@ -104,16 +115,17 @@ class FoodDataset(Dataset):
 		return len(self.labels)
 
 	def __getitem__(self, idx):
-		img_name = os.path.join(self.root_dir,self.labels.iloc[idx, 0])
-		image = Image.open(img_name)
-		correct_label = self.labels.iloc[idx, 1]
+		img_name = os.path.join(self.root_dir,self.pic_names[idx])
+		image = resizeimage.resize_cover(Image.open(img_name), [256, 256])
+		
+		correct_label = self.labels[idx]
 		#correct_label = correct_label.astype('int')
 		if self.transform:
 			image = self.transform(image)
 
-		sample = (image, correct_label)
 
-		return sample
+		return (image, correct_label)
+
 
 
 
@@ -127,14 +139,7 @@ class H5Dataset(Dataset):
 		h5_file = h5py.File(file_path)
 		self.data = h5_file.get('data')
 		self.target = h5_file.get('labels')
-		#f = h5py.File("foo.hdf5", "r")
-		#set1 = np.asarray(h5_file["foo/bar"])
-		#self.data = h5_file["data"]
-		#self.labels = h5_file["labels"]
-		#print(self.data.shape)
-		#print(type(self.data))
-		#var3 = set1["var3"]
-		
+
 		
 	def __getitem__(self, index):            
 		return (torch.from_numpy(self.data[index,:,:,:]),
@@ -162,41 +167,42 @@ def main():
 		
 		
 		
-	# Data loading code
-	# normalize = transforms.Normalize(mean=[x/255.0 for x in [125.3, 123.0, 113.9]],
+	#Data loading code
+	#normalize = transforms.Normalize(mean=[x/255.0 for x in [125.3, 123.0, 113.9]],
 	#								 std=[x/255.0 for x in [63.0, 62.1, 66.7]])
 
-# 	if args.augment:
-# 		transform_train = transforms.Compose([
-# 			transforms.Resize(256,256),
-# 			transforms.ToTensor(),
-# 			transforms.Lambda(lambda x: F.pad(
-# 								Variable(x.unsqueeze(0), requires_grad=False, volatile=True),
-# 								(4,4,4,4),mode='reflect').data.squeeze()),
-# 			transforms.ToPILImage(),
-# 			transforms.RandomCrop(32),
-# 			transforms.RandomHorizontalFlip(),
-# 			transforms.ToTensor(),
-# 			normalize,
-# 			])
-# 	else:
-# 		transform_train = transforms.Compose([
-# 			transforms.ToTensor(),
-# 			normalize,
-# 			])
+	if args.augment:
+		transform_train = transforms.Compose([
+			#transforms.ToTensor(),
+			#transforms.Lambda(lambda x: F.pad(
+			#					Variable(x.unsqueeze(0), requires_grad=False, volatile=True),
+			#					(4,4,4,4),mode='reflect').data.squeeze()),
+			#transforms.ToPILImage(),
+			transforms.Resize(256,256),
+			#transforms.RandomCrop(32),
+			transforms.RandomHorizontalFlip(),
+			transforms.ToTensor()
+			#normalize,
+			])
+	else:
+		transform_train = transforms.Compose([
+			transforms.Resize(256,256),
+			transforms.ToTensor()
+			#normalize,
+			])
 	
-# 	transform_test = transforms.Compose([
-# 		transforms.ToTensor(),
-# 		normalize
-# 		])
+	transform_test = transforms.Compose([
+		transforms.ToTensor()
+		#normalize
+		])
 
 	
+
 	
-	
-	#kwargs = {'num_workers': 1, 'pin_memory': True}
+	kwargs = {'num_workers': 4, 'pin_memory': True}
 	#assert(args.dataset == 'cifar10' or args.dataset == 'cifar100')
 	
-	train_data_path ="/home/mil/gupta/ifood18/data/training_set/train_set/"
+	train_data_path ="/home/mil/gupta/ifood18/data/train_set/"
 	val_data_path ="/home/mil/gupta/ifood18/data/val_set/"
 	
 	train_label ="/home/mil/gupta/ifood18/data/labels/train_info.csv"
@@ -208,13 +214,15 @@ def main():
 	
 	# train_h5 = "/home/mil/gupta/ifood18/data/h5data/train_data.h5py"
 	train_h5 =  "/home/mil/gupta/ifood18/data/h5data/train_data_iteration_1.h5py"
-
 	val_h5 = "/home/mil/gupta/ifood18/data/h5data/val_data_iteration_1.h5py"
 	
-	train_dataset =  H5Dataset(train_h5)
-	val_dataset =  H5Dataset(val_h5)
-	
 
+	
+# 	train_dataset =  H5Dataset(train_h5)
+# 	val_dataset =  H5Dataset(val_h5)
+	
+	train_dataset = FoodDataset(train_data_path,train_label, transform_train)
+	val_dataset = FoodDataset(val_data_path, val_label, transform_test)
 	
 
 	#custom_mnist_from_csv = \
@@ -222,9 +230,9 @@ def main():
 	#                         28, 28,
 	#                         transformations)
 
-	train_loader = torch.utils.data.DataLoader(dataset=train_dataset, batch_size=64, shuffle = True, num_workers=1)
+	train_loader = torch.utils.data.DataLoader(dataset=train_dataset, batch_size=128, shuffle = True, num_workers=4)
 
-	val_loader = torch.utils.data.DataLoader(dataset=val_dataset,batch_size= 64,num_workers=1)
+	val_loader = torch.utils.data.DataLoader(dataset=val_dataset,batch_size= 128,num_workers=4 )
 	
 	
 	
@@ -327,8 +335,8 @@ def train(train_loader, model, criterion, optimizer, epoch):
 	
 	for i, (inp, target) in enumerate(train_loader):
 		
-
-
+		
+		
 		target = target.type(torch.LongTensor).cuda(async=True)
 		inp = inp.cuda()
 		
@@ -339,9 +347,9 @@ def train(train_loader, model, criterion, optimizer, epoch):
 		output = model(input_var)
 		loss = criterion(output, target_var)
 
-		prec3 = accuracy(output.data, target, topk=(1,3))[-1] ## res is of shape [2,B] representing top 1 and top k accuracy respectively
+		prec3 = accuracy(output.data, target, topk=(1,3)) ## res is of shape [2,B] representing top 1 and top k accuracy respectively
 		losses.update(loss.data[0], inp.size(0))
-		top3.update(prec3[0], inp.size(0))
+		top3.update(prec3, inp.size(0))
 		
 	
 		optimizer.zero_grad()

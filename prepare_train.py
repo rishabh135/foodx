@@ -55,9 +55,9 @@ if data_order == 'pytorch':
 hdf5_path = "/home/mil/gupta/ifood18/data/h5data/train_data_iteration_1.h5py"
 # open a hdf5 file and create earrays
 hdf5_file = h5py.File(hdf5_path, mode='w')
-hdf5_file.create_dataset("data", train_shape, np.float32)
-hdf5_file.create_dataset("train_mean", train_shape[1:], np.float32)
-hdf5_file.create_dataset("labels", (len(train_data),), np.int32)
+hdf5_file.create_dataset("data", train_shape, np.float32 ,compression="lzf")
+hdf5_file.create_dataset("mean", train_shape[1:], np.float32,compression="lzf")
+hdf5_file.create_dataset("labels", (len(train_data),), np.int32,compression="lzf")
 hdf5_file["labels"][...] = train_labels
 
 
