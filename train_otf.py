@@ -72,12 +72,12 @@ parser.add_argument('--no-augment', dest='augment', action='store_false',
 					help='whether to use standard augmentation (default: True)')
 parser.add_argument('--resume', default='', type=str,
 					help='path to latest checkpoint (default: none)')
-parser.add_argument('--name', default='WideResNet-ifood-28-10', type=str,
+parser.add_argument('--name', default='WideResNet-ifood-22-2-otf', type=str,
 					help='name of experiment')
 parser.add_argument('--tensorboard',
 					help='Log progress to TensorBoard', action='store_true')
 
-parser.add_argument('--validate_freq', '-valf', default=200, type=int,
+parser.add_argument('--validate_freq', '-valf', default=1, type=int,
 					help='validate frequency (default: 100)')
 
 
@@ -116,7 +116,7 @@ class FoodDataset(Dataset):
 
 	def __getitem__(self, idx):
 		img_name = os.path.join(self.root_dir,self.pic_names[idx])
-		image = resizeimage.resize_cover(Image.open(img_name), [256, 256])
+		image = resizeimage.resize_cover(Image.open(img_name), [128, 128])
 		
 		correct_label = self.labels[idx]
 		#correct_label = correct_label.astype('int')
@@ -178,7 +178,7 @@ def main():
 			#					Variable(x.unsqueeze(0), requires_grad=False, volatile=True),
 			#					(4,4,4,4),mode='reflect').data.squeeze()),
 			#transforms.ToPILImage(),
-			transforms.Resize(256,256),
+			#transforms.Resize(256,256),
 			#transforms.RandomCrop(32),
 			transforms.RandomHorizontalFlip(),
 			transforms.ToTensor()
@@ -186,7 +186,7 @@ def main():
 			])
 	else:
 		transform_train = transforms.Compose([
-			transforms.Resize(256,256),
+			#transforms.Resize(256,256),
 			transforms.ToTensor()
 			#normalize,
 			])
@@ -230,9 +230,9 @@ def main():
 	#                         28, 28,
 	#                         transformations)
 
-	train_loader = torch.utils.data.DataLoader(dataset=train_dataset, batch_size=128, shuffle = True, num_workers=4)
+	train_loader = torch.utils.data.DataLoader(dataset=train_dataset, batch_size=256 , shuffle = True, num_workers=4)
 
-	val_loader = torch.utils.data.DataLoader(dataset=val_dataset,batch_size= 128,num_workers=4 )
+	val_loader = torch.utils.data.DataLoader(dataset=val_dataset,batch_size= 256,num_workers=4 )
 	
 	
 	
@@ -297,10 +297,10 @@ def main():
 		train(train_loader, model, criterion, optimizer, epoch)
 
 		
-		#if epoch % args.validate_freq == 0:
+		if epoch % args.validate_freq == 0:
 			# evaluate on validation set
-		prec3 = validate(val_loader, model, criterion, epoch)
-
+			prec3 = validate(val_loader, model, criterion, epoch)
+	
 		# remember best prec@1 and save checkpoint
 		is_best = prec3 > best_prec3
 		best_prec1 = max(prec3, best_prec3)
@@ -366,7 +366,7 @@ def train(train_loader, model, criterion, optimizer, epoch):
 			print('Epoch: [{0}][{1}/{2}]\t'
 				  'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
 				  'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
-				  'Prec@1 {top3.val:.3f} ({top3.avg:.3f})'.format(
+				  'Prec@3 {top3.val:.3f} ({top3.avg:.3f})'.format(
 					  epoch, i, len(train_loader), batch_time=batch_time,
 					  loss=losses, top3=top3))
 	# log to TensorBoard
@@ -413,9 +413,9 @@ def validate(val_loader, model, criterion, epoch):
 		loss = criterion(output, target_var)
 
 		# measure accuracy and record loss
-		prec3 = accuracy(output.data, target, topk=(1,3))[-1]
+		prec3 = accuracy(output.data, target, topk=(1,3))
 		losses.update(loss.data[0], input.size(0))
-		top3.update(prec3[0], input.size(0))
+		top3.update(prec3, input.size(0))
 
 		# measure elapsed time
 		batch_time.update(time.time() - end)
