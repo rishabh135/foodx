@@ -5,7 +5,7 @@ import torch.nn.functional as F
 
 
 class BasicBlock(nn.Module):
-	def __init__(self, in_planes, out_planes, stride, dropRate=0.0):
+	def __init__(self, in_planes, out_planes, stride, dropRate=0.5):
 		super(BasicBlock, self).__init__()
 		self.bn1 = nn.BatchNorm2d(in_planes)
 		self.relu1 = nn.ReLU(inplace=True)
@@ -31,7 +31,7 @@ class BasicBlock(nn.Module):
 		return torch.add(x if self.equalInOut else self.convShortcut(x), out)
 
 class NetworkBlock(nn.Module):
-	def __init__(self, nb_layers, in_planes, out_planes, block, stride, dropRate=0.0):
+	def __init__(self, nb_layers, in_planes, out_planes, block, stride, dropRate=0.5):
 		super(NetworkBlock, self).__init__()
 		self.layer = self._make_layer(block, in_planes, out_planes, nb_layers, stride, dropRate)
 	def _make_layer(self, block, in_planes, out_planes, nb_layers, stride, dropRate):
@@ -44,7 +44,7 @@ class NetworkBlock(nn.Module):
 		return self.layer(x)
 
 class WideResNet(nn.Module):
-	def __init__(self, depth, num_classes, widen_factor=1, dropRate=0.0):
+	def __init__(self, depth, num_classes, widen_factor=1, dropRate=0.5):
 		super(WideResNet, self).__init__()
 		nChannels = [16, 16*widen_factor, 32*widen_factor, 64*widen_factor]
 		
@@ -60,9 +60,9 @@ class WideResNet(nn.Module):
 		# 1st block
 		self.block1 = NetworkBlock(n, nChannels[0], nChannels[1], block, 1, dropRate)
 		# 2nd block
-		self.block2 = NetworkBlock(n, nChannels[1], nChannels[2], block, 2, dropRate)
+		self.block2 = NetworkBlock(n, nChannels[1], nChannels[2], block, 4, dropRate)
 		# 3rd block
-		self.block3 = NetworkBlock(n, nChannels[2], nChannels[3], block, 2, dropRate)
+		self.block3 = NetworkBlock(n, nChannels[2], nChannels[3], block, 4, dropRate)
 		# global average pooling and classifier
 		self.bn1 = nn.BatchNorm2d(nChannels[3])
 		self.relu = nn.ReLU(inplace=True)
@@ -91,7 +91,7 @@ class WideResNet(nn.Module):
 		#print(out.shape)
 		out = self.relu(self.bn1(out))
 		#print(out.shape)
-		out = F.avg_pool2d(out, 32)
+		out = F.avg_pool2d(out, 8)
 		#print(out.shape)
 		out = out.view(-1, self.nChannels)
 		#print(out.shape)

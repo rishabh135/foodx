@@ -13,13 +13,32 @@ from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms, utils
 
 from tqdm import tqdm
-import cv2
+import cv2,sys
 from PIL import Image
 		
+from scipy import ndimage, misc
+from skimage import data, transform
+
+import matplotlib.pyplot as plt
+import six.moves as sm
+import re
+import os
+from collections import defaultdict
+import PIL.Image
+try:
+    from cStringIO import StringIO as BytesIO
+except ImportError:
+    from io import BytesIO
+
+		
+import imgaug as ia
+from imgaug import augmenters as iaa
+import numpy as np
+
 		
 from resizeimage import resizeimage
 
-
+from scipy import ndimage
 import argparse
 import os
 import shutil
@@ -32,7 +51,7 @@ import torch.backends.cudnn as cudnn
 import torch.optim
 from torch.autograd import Variable
 
-from skimage import io, transform
+from skimage import io, transform 
 
 from wideresnet import WideResNet
 
@@ -54,11 +73,11 @@ parser.add_argument('--start-epoch', default=0, type=int,
 					help='manual epoch number (useful on restarts)')
 parser.add_argument('-b', '--batch-size', default=128, type=int,
 					help='mini-batch size (default: 128)')
-parser.add_argument('--lr', '--learning-rate', default=0.0001, type=float,
+parser.add_argument('--lr', '--learning-rate', default=0.001, type=float,
 					help='initial learning rate')
 parser.add_argument('--momentum', default=0.9, type=float, help='momentum')
 parser.add_argument('--nesterov', default=True, type=bool, help='nesterov momentum')
-parser.add_argument('--weight-decay', '--wd', default=5e-4, type=float,
+parser.add_argument('--weight-decay', '--wd', default=5e-5, type=float,
 					help='weight decay (default: 5e-4)')
 parser.add_argument('--print-freq', '-p', default=100, type=int,
 					help='print frequency (default: 10)')
@@ -66,13 +85,13 @@ parser.add_argument('--layers', default=28, type=int,
 					help='total number of layers (default: 28)')
 parser.add_argument('--widen-factor', default=4, type=int,
 					help='widen factor (default: 10)')
-parser.add_argument('--droprate', default=0.3, type=float,
+parser.add_argument('--droprate', default=0.5, type=float,
 					help='dropout probability (default: 0.0)')
 parser.add_argument('--no-augment', dest='augment', action='store_false',
 					help='whether to use standard augmentation (default: True)')
 parser.add_argument('--resume', default='', type=str,
 					help='path to latest checkpoint (default: none)')
-parser.add_argument('--name', default='WideResNet-ifood-22-2-otf', type=str,
+parser.add_argument('--name', default='WideResNet-ifood-28-4-otf-adam-with-augmentation', type=str,
 					help='name of experiment')
 parser.add_argument('--tensorboard',
 					help='Log progress to TensorBoard', action='store_true')
@@ -88,10 +107,105 @@ parser.set_defaults(augment=True)
 best_prec3 = 0
 
 
+def augment_images(image):
+	
+
+	# Sometimes(0.5, ...) applies the given augmenter in 50% of all cases,
+	# e.g. Sometimes(0.5, GaussianBlur(0.3)) would blur roughly every second image.
+	sometimes = lambda aug: iaa.Sometimes(0.5, aug)
+
+	# Define our sequence of augmentation steps that will be applied to every image
+	# All augmenters with per_channel=0.5 will sample one value _per image_
+	# in 50% of all cases. In all other cases they will sample new values
+	# _per channel_.
+	seq = iaa.Sequential(
+		[
+			# apply the following augmenters to most images
+			iaa.Fliplr(0.5), # horizontally flip 50% of all images
+			iaa.Flipud(0.2), # vertically flip 20% of all images
+			# crop images by -5% to 10% of their height/width
+			#sometimes(iaa.CropAndPad(
+			#	percent=(-0.05, 0.1),
+			#	pad_mode=ia.ALL,
+			#	pad_cval=(0, 255)
+			#)),
+			sometimes(iaa.Affine(
+				scale={"x": (0.8, 1.2), "y": (0.8, 1.2)}, # scale images to 80-120% of their size, individually per axis
+				translate_percent={"x": (-0.2, 0.2), "y": (-0.2, 0.2)}, # translate by -20 to +20 percent (per axis)
+				rotate=(-45, 45), # rotate by -45 to +45 degrees
+				shear=(-16, 16), # shear by -16 to +16 degrees
+				order=[0, 1], # use nearest neighbour or bilinear interpolation (fast)
+				cval=(0, 255), # if mode is constant, use a cval between 0 and 255
+				mode=ia.ALL # use any of scikit-image's warping modes (see 2nd image from the top for examples)
+			)),
+			# execute 0 to 5 of the following (less important) augmenters per image
+			# don't execute all of them, as that would often be way too strong
+			iaa.SomeOf((0, 5),
+				[
+					sometimes(iaa.Superpixels(p_replace=(0, 1.0), n_segments=(20, 200))), # convert images into their superpixel representation
+					iaa.OneOf([
+						iaa.GaussianBlur((0, 3.0)), # blur images with a sigma between 0 and 3.0
+						iaa.AverageBlur(k=(2, 7)), # blur image using local means with kernel sizes between 2 and 7
+						iaa.MedianBlur(k=(3, 11)), # blur image using local medians with kernel sizes between 2 and 7
+					]),
+					iaa.Sharpen(alpha=(0, 1.0), lightness=(0.75, 1.5)), # sharpen images
+					iaa.Emboss(alpha=(0, 1.0), strength=(0, 2.0)), # emboss images
+					# search either for all edges or for directed edges,
+					# blend the result with the original image using a blobby mask
+					#iaa.SimplexNoiseAlpha(iaa.OneOf([
+					#	iaa.EdgeDetect(alpha=(0.5, 1.0)),
+					#	iaa.DirectedEdgeDetect(alpha=(0.5, 1.0), direction=(0.0, 1.0)),
+					# ])),
+					#iaa.AdditiveGaussianNoise(loc=0, scale=(0.0, 0.05*255), per_channel=0.5), # add gaussian noise to images
+					#iaa.OneOf([
+					#	iaa.Dropout((0.01, 0.1), per_channel=0.5), # randomly remove up to 10% of the pixels
+					#	iaa.CoarseDropout((0.03, 0.15), size_percent=(0.02, 0.05), per_channel=0.2),
+					#]),
+					iaa.Invert(0.05, per_channel=True), # invert color channels
+					iaa.Add((-10, 10), per_channel=0.5), # change brightness of images (by -10 to 10 of original value)
+					iaa.AddToHueAndSaturation((-20, 20)), # change hue and saturation
+					# either change the brightness of the whole image (sometimes
+					# per channel) or change the brightness of subareas
+					iaa.OneOf([
+						iaa.Multiply((0.5, 1.5), per_channel=0.5),
+						iaa.FrequencyNoiseAlpha(
+							exponent=(-4, 0),
+							first=iaa.Multiply((0.5, 1.5), per_channel=True),
+							second=iaa.ContrastNormalization((0.5, 2.0))
+						)
+					]),
+					iaa.ContrastNormalization((0.5, 2.0), per_channel=0.5), # improve or worsen the contrast
+					iaa.Grayscale(alpha=(0.0, 1.0)),
+					sometimes(iaa.ElasticTransformation(alpha=(0.5, 3.5), sigma=0.25)), # move pixels locally around (with random strengths)
+					sometimes(iaa.PiecewiseAffine(scale=(0.01, 0.05))), # sometimes move parts of the image around
+					sometimes(iaa.PerspectiveTransform(scale=(0.01, 0.1)))
+				],
+				random_order=True
+			)
+		],
+		random_order=True
+	)
+	
+	
+	#print("type ", type(image))
+	
+	return seq.augment_image(image)
+	
+	#print(type(tmp))
+	#grid = seq.draw_grid(image, cols=8, rows=8)
+	#misc.imsave("examples_grid.jpg", grid)
+	#io.imsave("examples_image.jpg", tmp)
+	
+	
+
+	#return tmp
+
+
+
 
 class FoodDataset(Dataset):
 	"""Food dataset."""
-	def __init__(self, root_dir, csv_file, transform):
+	def __init__(self, root_dir, csv_file, transform , training = False):
 		"""
 		Args:
 			csv_file (string): Path to the csv file with annotations.
@@ -109,6 +223,7 @@ class FoodDataset(Dataset):
 		# print("Length of val data is : ",len(val_data))
 		
 		self.root_dir = root_dir
+		self.flag = training
 		self.transform = transform
 
 	def __len__(self):
@@ -116,14 +231,26 @@ class FoodDataset(Dataset):
 
 	def __getitem__(self, idx):
 		img_name = os.path.join(self.root_dir,self.pic_names[idx])
-		image = resizeimage.resize_cover(Image.open(img_name), [128, 128])
+		import glob
+
+		image = ndimage.imread(img_name, mode="RGB")
+		#image = transform.resize(image , (128,128))
+		# 
+		#image = resizeimage.resize_cover(Image.open(img_name), [128, 128])
 		
+		if(self.flag == True):
+			image = augment_images(image)
+		
+
 		correct_label = self.labels[idx]
 		#correct_label = correct_label.astype('int')
 		if self.transform:
 			image = self.transform(image)
-
-
+		
+		
+		#plt.imsave("examples_image_after_trabsform.jpg", image.numpy().transpose(1,2,0))
+		#print(image.size)
+		#sys.exit()
 		return (image, correct_label)
 
 
@@ -177,9 +304,9 @@ def main():
 			#transforms.Lambda(lambda x: F.pad(
 			#					Variable(x.unsqueeze(0), requires_grad=False, volatile=True),
 			#					(4,4,4,4),mode='reflect').data.squeeze()),
-			#transforms.ToPILImage(),
-			#transforms.Resize(256,256),
-			#transforms.RandomCrop(32),
+			transforms.ToPILImage(),
+			transforms.Resize(192,192),
+			transforms.RandomCrop(128),
 			transforms.RandomHorizontalFlip(),
 			transforms.ToTensor()
 			#normalize,
@@ -187,7 +314,7 @@ def main():
 	else:
 		transform_train = transforms.Compose([
 			#transforms.Resize(256,256),
-			transforms.ToTensor()
+			#transforms.ToTensor()
 			#normalize,
 			])
 	
@@ -221,7 +348,7 @@ def main():
 # 	train_dataset =  H5Dataset(train_h5)
 # 	val_dataset =  H5Dataset(val_h5)
 	
-	train_dataset = FoodDataset(train_data_path,train_label, transform_train)
+	train_dataset = FoodDataset(train_data_path,train_label, transform_train, training= True)
 	val_dataset = FoodDataset(val_data_path, val_label, transform_test)
 	
 
@@ -230,9 +357,9 @@ def main():
 	#                         28, 28,
 	#                         transformations)
 
-	train_loader = torch.utils.data.DataLoader(dataset=train_dataset, batch_size=256 , shuffle = True, num_workers=4)
+	train_loader = torch.utils.data.DataLoader(dataset=train_dataset, batch_size=128 , shuffle = True, num_workers=4)
 
-	val_loader = torch.utils.data.DataLoader(dataset=val_dataset,batch_size= 256,num_workers=4 )
+	val_loader = torch.utils.data.DataLoader(dataset=val_dataset,batch_size= 128,num_workers=4 )
 	
 	
 	
@@ -284,11 +411,10 @@ def main():
 
 	cudnn.benchmark = True
 
+
 	# define loss function (criterion) and optimizer
 	criterion = nn.CrossEntropyLoss().cuda()
-	optimizer = torch.optim.SGD(model.parameters(), args.lr,
-								momentum=args.momentum, nesterov = args.nesterov,
-								weight_decay=args.weight_decay)
+	optimizer = torch.optim.Adam(model.parameters(), args.lr, eps=1e-08, weight_decay=args.weight_decay, amsgrad=True) 
 
 	for epoch in range(args.start_epoch, args.epochs):
 		adjust_learning_rate(optimizer, epoch+1)
