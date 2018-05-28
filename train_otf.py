@@ -231,7 +231,7 @@ class FoodDataset(Dataset):
 
 	def __getitem__(self, idx):
 		img_name = os.path.join(self.root_dir,self.pic_names[idx])
-		import glob
+		
 
 		image = ndimage.imread(img_name, mode="RGB")
 		image = misc.imresize(image, (192,192),mode='RGB')
@@ -319,7 +319,10 @@ def main():
 			#normalize,
 			])
 	
-	transform_test = transforms.Compose([
+	transform_test = transforms.Compose([transforms.ToPILImage(),
+		#transforms.Resize(192,192),
+		transforms.CenterCrop(128),
+		#transforms.RandomHorizontalFlip(),
 		transforms.ToTensor()
 		#normalize
 		])
