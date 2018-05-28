@@ -234,6 +234,7 @@ class FoodDataset(Dataset):
 		import glob
 
 		image = ndimage.imread(img_name, mode="RGB")
+		image = misc.imresize(image, (192,192),mode='RGB')
 		#image = transform.resize(image , (128,128))
 		# 
 		#image = resizeimage.resize_cover(Image.open(img_name), [128, 128])
@@ -305,7 +306,7 @@ def main():
 			#					Variable(x.unsqueeze(0), requires_grad=False, volatile=True),
 			#					(4,4,4,4),mode='reflect').data.squeeze()),
 			transforms.ToPILImage(),
-			transforms.Resize(192,192),
+			#transforms.Resize(192,192),
 			transforms.RandomCrop(128),
 			transforms.RandomHorizontalFlip(),
 			transforms.ToTensor()
