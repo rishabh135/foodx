@@ -10,5 +10,9 @@ python train.py --dataset cifar100 --layers 40 --widen-factor 4
 - [densenet-pytorch](https://github.com/andreasveit/densenet-pytorch)
 - Wide Residual Networks (BMVC 2016) http://arxiv.org/abs/1605.07146 by Sergey Zagoruyko and Nikos Komodakis.
 
+# Location of dataset for training and testing purposes :
 
+```
+/home/mil/gupta/ifood18/data/
+```
 
