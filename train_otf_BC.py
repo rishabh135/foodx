@@ -65,13 +65,13 @@ parser.add_argument('--layers', default=28, type=int,
                     help='total number of layers (default: 28)')
 parser.add_argument('--widen-factor', default=4, type=int,
                     help='widen factor (default: 10)')
-parser.add_argument('--droprate', default=0.3, type=float,
+parser.add_argument('--droprate', default=0.5, type=float,
                     help='dropout probability (default: 0.0)')
 parser.add_argument('--no-augment', dest='augment', action='store_false',
                     help='whether to use standard augmentation (default: True)')
 parser.add_argument('--resume', default='', type=str,
                     help='path to latest checkpoint (default: none)')
-parser.add_argument('--name', default='WideResNet-ifood-28-4-otf-BC', type=str,
+parser.add_argument('--name', default='WideResNet-ifood-28-4-otf-BC-aug', type=str,
                     help='name of experiment')
 parser.add_argument('--tensorboard',
                     help='Log progress to TensorBoard', action='store_true')
@@ -199,9 +199,9 @@ def main():
     #                         28, 28,
     #                         transformations)
 
-    train_loader = torch.utils.data.DataLoader(dataset=train_dataset, batch_size=256, shuffle=True, num_workers=4)
+    train_loader = torch.utils.data.DataLoader(dataset=train_dataset, batch_size=256, shuffle=True, num_workers=16)
 
-    val_loader = torch.utils.data.DataLoader(dataset=val_dataset, batch_size=128, num_workers=4)
+    val_loader = torch.utils.data.DataLoader(dataset=val_dataset, batch_size=128, num_workers=16)
 
     # 	train_labels = pd.read_csv('./data/labels/train_info.csv')
 
@@ -294,9 +294,8 @@ def train(train_loader, model, criterion, optimizer, epoch):
     model.train()
 
     end = time.time()
-
+    
     for i, (inp, target) in enumerate(train_loader):
-
         # mix
         target = target.type(torch.LongTensor)
         batchsize = inp.shape[0] // 2
