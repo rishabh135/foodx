@@ -268,7 +268,7 @@ class H5Dataset(Dataset):
 
 
 def main():
-    global args, best_prec1
+    global args, best_prec3
     args = parser.parse_args()
     if args.tensorboard:
         configure("runs/%s" % (args.name))
@@ -374,7 +374,7 @@ def main():
             print("=> loading checkpoint '{}'".format(args.resume))
             checkpoint = torch.load(args.resume)
             args.start_epoch = checkpoint['epoch']
-            best_prec1 = checkpoint['best_prec1']
+            best_prec3 = checkpoint['best_prec3']
             model.load_state_dict(checkpoint['state_dict'])
             print("=> loaded checkpoint '{}' (epoch {})"
                   .format(args.resume, checkpoint['epoch']))
@@ -402,14 +402,15 @@ def main():
 
         # remember best prec@1 and save checkpoint
         is_best = prec3 > best_prec3
-        best_prec1 = max(prec3, best_prec3)
+        best_prec3 = max(prec3, best_prec3)
         save_checkpoint({
             'epoch': epoch + 1,
+            "model": model,
             'state_dict': model.state_dict(),
-            'best_prec1': best_prec3,
+            'best_prec3': best_prec3,
         }, is_best)
 
-    print('Best accuracy: ', best_prec1)
+    print('Best accuracy: ', best_prec3)
 
 
 def train(train_loader, model, criterion, optimizer, epoch):
