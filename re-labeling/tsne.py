@@ -10,7 +10,7 @@ def main():
     print("now loading ...")
     X = np.load("/data/unagi0/food/tmp/dst_feature/1000.npy")
     print("embedding ...")
-    X_embedded = TSNE(n_components=2).fit_transform(X)
+    X_embedded = TSNE(n_components=10).fit_transform(X)
     print("calc kmeans ...")
     kmeans = KMeans(n_clusters=2, random_state=0).fit(X_embedded)
     pdb.set_trace()
