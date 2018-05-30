@@ -86,12 +86,12 @@ parser.add_argument('--layers', default=28, type=int,
 parser.add_argument('--widen-factor', default=4, type=int,
 					help='widen factor (default: 10)')
 parser.add_argument('--droprate', default=0.5, type=float,
-					help='dropout probability (default: 0.0)')
+					help='dropout probability (default: 0.5)')
 parser.add_argument('--no-augment', dest='augment', action='store_false',
 					help='whether to use standard augmentation (default: True)')
 parser.add_argument('--resume', default='', type=str,
 					help='path to latest checkpoint (default: none)')
-parser.add_argument('--name', default='WideResNet-ifood-28-4-otf-adam-with-augmentation', type=str,
+parser.add_argument('--name', default='WideResNet-ifood-28-4-otf-adam-with-augmentation-size-256', type=str,
 					help='name of experiment')
 parser.add_argument('--tensorboard',
 					help='Log progress to TensorBoard', action='store_true')
@@ -234,7 +234,7 @@ class FoodDataset(Dataset):
 		
 
 		image = ndimage.imread(img_name, mode="RGB")
-		image = misc.imresize(image, (192,192),mode='RGB')
+		image = misc.imresize(image, (256,256),mode='RGB')
 		#image = transform.resize(image , (128,128))
 		# 
 		#image = resizeimage.resize_cover(Image.open(img_name), [128, 128])
@@ -286,7 +286,7 @@ class H5Dataset(Dataset):
 
 
 def main():
-	global args, best_prec1
+	global args, best_prec3
 	args = parser.parse_args()
 	if args.tensorboard: 
 		configure("runs/%s"%(args.name))
@@ -306,8 +306,8 @@ def main():
 			#					Variable(x.unsqueeze(0), requires_grad=False, volatile=True),
 			#					(4,4,4,4),mode='reflect').data.squeeze()),
 			transforms.ToPILImage(),
-			#transforms.Resize(192,192),
-			transforms.RandomCrop(128),
+			# transforms.Resize(192,192),
+			# transforms.RandomCrop(128),
 			transforms.RandomHorizontalFlip(),
 			transforms.ToTensor()
 			#normalize,
@@ -321,7 +321,7 @@ def main():
 	
 	transform_test = transforms.Compose([transforms.ToPILImage(),
 		#transforms.Resize(192,192),
-		transforms.CenterCrop(128),
+		#transforms.CenterCrop(128),
 		#transforms.RandomHorizontalFlip(),
 		transforms.ToTensor()
 		#normalize
@@ -361,9 +361,9 @@ def main():
 	#                         28, 28,
 	#                         transformations)
 
-	train_loader = torch.utils.data.DataLoader(dataset=train_dataset, batch_size=128 , shuffle = True, num_workers=4)
+	train_loader = torch.utils.data.DataLoader(dataset=train_dataset, batch_size=32 , shuffle = True, num_workers=4)
 
-	val_loader = torch.utils.data.DataLoader(dataset=val_dataset,batch_size= 128,num_workers=4 )
+	val_loader = torch.utils.data.DataLoader(dataset=val_dataset,batch_size= 32,num_workers=4 )
 	
 	
 	
@@ -406,7 +406,7 @@ def main():
 			print("=> loading checkpoint '{}'".format(args.resume))
 			checkpoint = torch.load(args.resume)
 			args.start_epoch = checkpoint['epoch']
-			best_prec1 = checkpoint['best_prec1']
+			best_prec3 = checkpoint['best_prec3']
 			model.load_state_dict(checkpoint['state_dict'])
 			print("=> loaded checkpoint '{}' (epoch {})"
 				  .format(args.resume, checkpoint['epoch']))
@@ -433,14 +433,15 @@ def main():
 	
 		# remember best prec@1 and save checkpoint
 		is_best = prec3 > best_prec3
-		best_prec1 = max(prec3, best_prec3)
+		best_prec3 = max(prec3, best_prec3)
 		save_checkpoint({
 			'epoch': epoch + 1,
+			'model' : model,
 			'state_dict': model.state_dict(),
-			'best_prec1': best_prec3,
+			'best_prec3': best_prec3,
 		}, is_best)
 	
-	print ('Best accuracy: ', best_prec1)
+	print ('Best accuracy: ', best_prec3)
 
 def train(train_loader, model, criterion, optimizer, epoch):
 	"""Train for one epoch on the training set"""   
