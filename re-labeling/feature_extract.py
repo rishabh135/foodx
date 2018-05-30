@@ -2,11 +2,6 @@ import argparse
 import matplotlib.pyplot as plot
 
 import chainer
-
-#from chainercv.datasets import voc_bbox_label_names
-
-#from chainercv import utils
-#from vis_bbox import vis_bbox
 import cupy
 
 from PIL import Image
@@ -23,7 +18,6 @@ def main():
     parser.add_argument('--dst_path', default="/data/unagi0/food/tmp/dst_feature/")
     args = parser.parse_args()
 
-    #image_list = pd.read_csv(args.image_list, header=None)
     image_list = open(args.image_list, "r")
     feature_array = np.zeros((101733, 4096), dtype=np.float32)
 
@@ -37,9 +31,6 @@ def main():
         print(filename)
 
         img = Image.open(args.root_path + filename)
-        #img = img.resize((256, 256)) # なぜか、ある特定の形のときエラーになる
-        #img = np.asarray(img, dtype=np.float32)
-        #img = np.transpose(img, (2, 0, 1))
         feature = model.extract([img], layers=['fc6'])
         feature_array[i] = chainer.cuda.to_cpu(feature['fc6'][0].data)
 
