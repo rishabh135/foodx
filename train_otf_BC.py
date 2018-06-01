@@ -94,14 +94,15 @@ parser.add_argument('--no-augment', dest='augment', action='store_false',
                     help='whether to use standard augmentation (default: True)')
 parser.add_argument('--resume', default='', type=str,
                     help='path to latest checkpoint (default: none)')
-parser.add_argument('--name', default='ResNet152-ifood-28-4-otf-BC-aug_2', type=str,
-                    help='name of experiment')
+parser.add_argument('--name', type=str,
+                    help='name of experiment', required=True)
 parser.add_argument('--tensorboard',
                     help='Log progress to TensorBoard', action='store_true')
 
 parser.add_argument('--validate_freq', '-valf', default=2, type=int,
                     help='validate frequency (default: 100)')
 parser.add_argument('--BC', help='Use BC learning', action='store_true')
+parser.add_argument('--BCp', help='Use BC learning', action='store_true')
 
 parser.set_defaults(augment=True)
 
@@ -337,7 +338,8 @@ def main():
     #                         transformations)
 
     batchsize = 64
-    train_loader = torch.utils.data.DataLoader(dataset=train_dataset, batch_size=batchsize * (1 + args.BC),
+    use_BC = args.BC or args.BCp
+    train_loader = torch.utils.data.DataLoader(dataset=train_dataset, batch_size=batchsize * (1 + use_BC),
                                                shuffle=True, num_workers=16)
 
     val_loader = torch.utils.data.DataLoader(dataset=val_dataset, batch_size=batchsize, num_workers=16)
@@ -448,22 +450,36 @@ def train(train_loader, model, criterion, optimizer, epoch):
 
     end = time.time()
     for i, (inp, target) in enumerate(train_loader):
+        target = target.cuda(async=True)
+        inp = inp.cuda()
         if args.BC:
             # mix
             target = target.type(torch.LongTensor)
             batchsize = inp.shape[0] // 2
-            rand = torch.rand(batchsize)
+            rand = torch.rand(batchsize).cuda()
             inp = inp[:batchsize] * rand.view(-1, 1, 1, 1) + inp[-batchsize:] * (1 - rand.view(-1, 1, 1, 1))
-            eye = torch.eye(211)
+            eye = torch.eye(211).cuda()
             target = eye[target[:batchsize]] * rand.view(-1, 1) + eye[target[-batchsize:]] * (1 - rand.view(-1, 1))
+        elif args.BCp:
+            # mix
+            target = target.type(torch.LongTensor)
+            batchsize = inp.shape[0] // 2
+            rand = torch.rand(batchsize).cuda()
+
+            mean = torch.mean(inp.view(inp.shape[0], -1), dim=1)
+            sigma = torch.std(inp.view(inp.shape[0], -1), dim=1)
+            p = 1 / (1 + sigma[:batchsize] / sigma[-batchsize:] * (1 - rand) / rand)
+            inp = inp - mean.view(-1, 1, 1, 1)
+            inp = inp[:batchsize] * p.view(-1, 1, 1, 1) + inp[-batchsize:] * (1 - p.view(-1, 1, 1, 1))
+            inp = inp / torch.sqrt(p ** 2 + (1 - p) ** 2).view(-1, 1, 1, 1)
+            eye = torch.eye(211).cuda()
+            target = eye[target[:batchsize]] * rand.view(-1, 1) + eye[target[-batchsize:]] * (1 - rand.view(-1, 1))
+
         else:
             batchsize = inp.shape[0]
             target = target.type(torch.LongTensor)
             eye = torch.eye(211)
             target = eye[target]
-
-        target = target.cuda(async=True)
-        inp = inp.cuda()
 
         input_var = torch.autograd.Variable(inp)
         target_var = torch.autograd.Variable(target)
@@ -514,6 +530,10 @@ def validate(val_loader, model, criterion, epoch):
         target = target.type(torch.LongTensor)
         eye = torch.eye(211)
         target = eye[target]
+        if args.BCp:
+            # subtract mean from image
+            mean = torch.mean(input.view(input.shape[0], -1), dim=1)
+            input = input - mean.view(-1, 1, 1, 1)
 
         target = target.cuda(async=True)
         input = input.cuda()
@@ -588,7 +608,7 @@ class AverageMeter(object):
 
 def adjust_learning_rate(optimizer, epoch):
     """Sets the learning rate to the initial LR divided by 5 at 60th, 120th and 160th epochs"""
-    lr = args.lr * ((0.2 ** int(epoch >= 120)) * (0.2 ** int(epoch >= 240)) * (0.2 ** int(epoch >= 320)))
+    lr = args.lr * ((0.2 ** int(epoch >= 120)) * (0.2 ** int(epoch >= 160)) * (0.2 ** int(epoch >= 200)))
     # log to TensorBoard
     if args.tensorboard:
         log_value('learning_rate', lr, epoch)
