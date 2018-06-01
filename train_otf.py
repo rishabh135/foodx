@@ -344,8 +344,8 @@ def main():
 
 	
 	# train_h5 = "/home/mil/gupta/ifood18/data/h5data/train_data.h5py"
-	train_h5 =  "/home/mil/gupta/ifood18/data/h5data/train_data_iteration_1.h5py"
-	val_h5 = "/home/mil/gupta/ifood18/data/h5data/val_data_iteration_1.h5py"
+	# train_h5 =  "/home/mil/gupta/ifood18/data/h5data/train_data_iteration_1.h5py"
+	# val_h5 = "/home/mil/gupta/ifood18/data/h5data/val_data_iteration_1.h5py"
 	
 
 	
