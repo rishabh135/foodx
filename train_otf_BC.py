@@ -68,8 +68,8 @@ import pretrainedmodels
 # torch.multiprocessing.set_start_method('spawn')
 
 parser = argparse.ArgumentParser(description='PyTorch WideResNet Training')
-parser.add_argument('--dataset', default='ci', type=str,
-                    help='dataset (ifood18[default] or cifar10 or cifar100)')
+parser.add_argument('--dataset', default='ifood', type=str,
+                    help='dataset (ifood[default] or food101N')
 parser.add_argument('--epochs', default=400, type=int,
                     help='number of total epochs to run')
 parser.add_argument('--start-epoch', default=0, type=int,
@@ -103,6 +103,7 @@ parser.add_argument('--validate_freq', '-valf', default=2, type=int,
                     help='validate frequency (default: 100)')
 parser.add_argument('--BC', help='Use BC learning', action='store_true')
 parser.add_argument('--BCp', help='Use BC learning', action='store_true')
+parser.add_argument('--model', default="resnet152", help='Use BC learning')
 
 parser.set_defaults(augment=True)
 
@@ -275,6 +276,7 @@ class H5Dataset(Dataset):
 def main():
     global args, best_prec3
     args = parser.parse_args()
+    assert args.model in ["resnet152", "se_resnext101_32x4d"]
     if args.tensorboard:
         configure("runs/%s" % (args.name))
 
@@ -310,24 +312,35 @@ def main():
                                          # normalize
                                          ])
 
-    kwargs = {'num_workers': 4, 'pin_memory': True}
-    # assert(args.dataset == 'cifar10' or args.dataset == 'cifar100')
+    assert (args.dataset in ["ifood", "food101N"])
 
-    train_data_path = "/home/mil/gupta/ifood18/data/train_set/"
-    val_data_path = "/home/mil/gupta/ifood18/data/val_set/"
+    if args.dataset == "ifood":
+        train_data_path = "/home/mil/gupta/ifood18/data/train_set/"
+        val_data_path = "/home/mil/gupta/ifood18/data/val_set/"
 
-    train_label = "/home/mil/gupta/ifood18/data/labels/train_info.csv"
-    val_label = "/home/mil/gupta/ifood18/data/labels/val_info.csv"
+        train_label = "/home/mil/gupta/ifood18/data/labels/train_info.csv"
+        val_label = "/home/mil/gupta/ifood18/data/labels/val_info.csv"
+    elif args.dataset == "food101N":
+        train_data_path = "/home/mil/gupta/ifood18/data/Food-101N_release/images"
+        val_data_path = "/home/mil/gupta/ifood18/data/Food-101N_release/images"
+        if not os.path.exists("/home/mil/noguchi/M1/ifood/foodx/data/food101N/train_info.csv"):
+            train_data = pd.read_csv("/home/mil/gupta/ifood18/data/Food-101N_release/meta/verified_train.tsv", sep='\t')
+            train_data = list(train_data[train_data["verification_label"] == 1]["class_name/key"])
+            val_data = pd.read_csv("/home/mil/gupta/ifood18/data/Food-101N_release/meta/verified_val.tsv", sep='\t')
+            val_data = list(val_data[val_data["verification_label"] == 1]["class_name/key"])
+            train_data += val_data
+            class_label = list(set([data.split("/")[0] for data in train_data]))
 
-    # transformations = transforms.Compose([transforms.ToTensor()])
+            train_info = "\n".join([f"{data},{class_label.index(data.split('/')[0])}" for data in train_data])
+            with open("/home/mil/noguchi/M1/ifood/foodx/data/food101N/train_info.csv", "w") as f:
+                f.write(train_info)
 
+            val_info = "\n".join([f"{data},{class_label.index(data.split('/')[0])}" for data in val_data])
+            with open("/home/mil/noguchi/M1/ifood/foodx/data/food101N/val_info.csv", "w") as f:
+                f.write(val_info)
 
-    # train_h5 = "/home/mil/gupta/ifood18/data/h5data/train_data.h5py"
-    train_h5 = "/home/mil/gupta/ifood18/data/h5data/train_data_iteration_1.h5py"
-    val_h5 = "/home/mil/gupta/ifood18/data/h5data/val_data_iteration_1.h5py"
-
-    # 	train_dataset =  H5Dataset(train_h5)
-    # 	val_dataset =  H5Dataset(val_h5)
+        train_label = "/home/mil/noguchi/M1/ifood/foodx/data/food101N/train_info.csv"
+        val_label = "/home/mil/noguchi/M1/ifood/foodx/data/food101N/val_info.csv"
 
     train_dataset = FoodDataset(train_data_path, train_label, transform_train, training=True)
     val_dataset = FoodDataset(val_data_path, val_label, transform_test)
@@ -340,9 +353,9 @@ def main():
     batchsize = 64
     use_BC = args.BC or args.BCp
     train_loader = torch.utils.data.DataLoader(dataset=train_dataset, batch_size=batchsize * (1 + use_BC),
-                                               shuffle=True, num_workers=16)
+                                               shuffle=True, num_workers=8)
 
-    val_loader = torch.utils.data.DataLoader(dataset=val_dataset, batch_size=batchsize, num_workers=16)
+    val_loader = torch.utils.data.DataLoader(dataset=val_dataset, batch_size=batchsize, num_workers=8)
 
     # 	train_labels = pd.read_csv('./data/labels/train_info.csv')
 
@@ -368,7 +381,8 @@ def main():
     # create model
     # model = WideResNet(args.layers, 211, args.widen_factor, dropRate=args.droprate)
 
-    model = pretrainedmodels.__dict__["resnet152"](num_classes=1000, pretrained='imagenet')
+    # model = pretrainedmodels.__dict__["resnet152"](num_classes=1000, pretrained='imagenet')se_resnext101_32x4d
+    model = pretrainedmodels.__dict__[args.model](num_classes=1000, pretrained='imagenet')
     model = finetune.FineTuneModel(model)
     model.train_params()
 
@@ -403,7 +417,7 @@ def main():
     # optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, model.parameters()),
     #                              args.lr,
     #                              weight_decay=args.weight_decay)
-
+    prec3 = 0
     for epoch in range(args.start_epoch, args.epochs):
         # if epoch == 0:
         #     # update all parameters from epoch1
