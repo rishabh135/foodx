@@ -94,14 +94,14 @@ parser.add_argument('--no-augment', dest='augment', action='store_false',
                     help='whether to use standard augmentation (default: True)')
 parser.add_argument('--resume', default='', type=str,
                     help='path to latest checkpoint (default: none)')
-parser.add_argument('--name', type=str,
-                    help='name of experiment', required=True)
 parser.add_argument('--tensorboard',
                     help='Log progress to TensorBoard', action='store_true')
 
 parser.add_argument('--validate_freq', '-valf', default=2, type=int,
                     help='validate frequency (default: 100)')
 parser.add_argument('--BC', help='Use BC learning', action='store_true')
+parser.add_argument('--BCp', help='Use BC learning', action='store_true')
+parser.add_argument('--model', default="resnet152", help='Use BC learning')
 
 parser.set_defaults(augment=True)
 
@@ -129,65 +129,65 @@ def augment_images(image):
             #	pad_cval=(0, 255)
             # )),
             sometimes(iaa.Affine(
-                scale={"x": (0.9, 1.1), "y": (0.9, 1.1)},
+                scale={"x": (0.95, 1.05), "y": (0.95, 1.05)},
                 # scale images to 80-120% of their size, individually per axis
-                translate_percent={"x": (-0.1, 0.1), "y": (-0.1, 0.1)},  # translate by -20 to +20 percent (per axis)
+                translate_percent={"x": (-0.05, 0.05), "y": (-0.05, 0.05)},  # translate by -20 to +20 percent (per axis)
                 rotate=(-20, 20),  # rotate by -45 to +45 degrees
-                shear=(-16, 16),  # shear by -16 to +16 degrees
+                shear=(-10, 10),  # shear by -16 to +16 degrees
                 order=[0, 1],  # use nearest neighbour or bilinear interpolation (fast)
                 cval=(0, 255),  # if mode is constant, use a cval between 0 and 255
                 mode=ia.ALL  # use any of scikit-image's warping modes (see 2nd image from the top for examples)
             )),
             # execute 0 to 5 of the following (less important) augmenters per image
             # don't execute all of them, as that would often be way too strong
-            # iaa.SomeOf((0, 2),
-            #            [
-            #                # sometimes(iaa.Superpixels(p_replace=(0, 1.0), n_segments=(20, 200))),
-            #                # convert images into their superpixel representation
-            #                iaa.OneOf([
-            #                    iaa.GaussianBlur((0, 1.0)),  # blur images with a sigma between 0 and 3.0
-            #                    iaa.AverageBlur(k=(2, 4)),
-            #                    # blur image using local means with kernel sizes between 2 and 7
-            #                    iaa.MedianBlur(k=(3, 5)),
-            #                    # blur image using local medians with kernel sizes between 2 and 7
-            #                ]),
-            #                iaa.Sharpen(alpha=(0, 1.0), lightness=(0.75, 1.5)),  # sharpen images
-            #                # iaa.Emboss(alpha=(0, 1.0), strength=(0, 2.0)),  # emboss images
-            #                # search either for all edges or for directed edges,
-            #                # blend the result with the original image using a blobby mask
-            #                # iaa.SimplexNoiseAlpha(iaa.OneOf([
-            #                #	iaa.EdgeDetect(alpha=(0.5, 1.0)),
-            #                #	iaa.DirectedEdgeDetect(alpha=(0.5, 1.0), direction=(0.0, 1.0)),
-            #                # ])),
-            #                # iaa.AdditiveGaussianNoise(loc=0, scale=(0.0, 0.05*255), per_channel=0.5), # add gaussian noise to images
-            #                # iaa.OneOf([
-            #                #	iaa.Dropout((0.01, 0.1), per_channel=0.5), # randomly remove up to 10% of the pixels
-            #                #	iaa.CoarseDropout((0.03, 0.15), size_percent=(0.02, 0.05), per_channel=0.2),
-            #                # ]),
-            #                # iaa.Invert(0.05, per_channel=True),  # invert color channels
-            #                iaa.Add((-10, 10), per_channel=0.5),
-            #                # change brightness of images (by -10 to 10 of original value)
-            #                iaa.AddToHueAndSaturation((-20, 20)),  # change hue and saturation
-            #                # either change the brightness of the whole image (sometimes
-            #                # per channel) or change the brightness of subareas
-            #                iaa.OneOf([
-            #                    iaa.Multiply((0.8, 1.2), per_channel=0.5),
-            #                    # iaa.FrequencyNoiseAlpha(
-            #                    #     exponent=(-4, 0),
-            #                    #     first=iaa.Multiply((0.5, 1.5), per_channel=True),
-            #                    #     second=iaa.ContrastNormalization((0.5, 2.0))
-            #                    # )
-            #                ]),
-            #                iaa.ContrastNormalization((0.8, 1.2), per_channel=0.5),  # improve or worsen the contrast
-            #                # iaa.Grayscale(alpha=(0.0, 1.0)),
-            #                sometimes(iaa.ElasticTransformation(alpha=(0.5, 1.0), sigma=0.25)),
-            #                # move pixels locally around (with random strengths)
-            #                sometimes(iaa.PiecewiseAffine(scale=(0.01, 0.05))),
-            #                # sometimes move parts of the image around
-            #                sometimes(iaa.PerspectiveTransform(scale=(0.01, 0.1)))
-            #            ],
-            #            random_order=True
-            #            )
+            iaa.SomeOf((0, 2),
+                       [
+                           # sometimes(iaa.Superpixels(p_replace=(0, 1.0), n_segments=(20, 200))),
+                           # convert images into their superpixel representation
+                           iaa.OneOf([
+                               iaa.GaussianBlur((0, 2.0)),  # blur images with a sigma between 0 and 3.0
+                               iaa.AverageBlur(k=(2, 4)),
+                               # blur image using local means with kernel sizes between 2 and 7
+                               iaa.MedianBlur(k=(3, 5)),
+                               # blur image using local medians with kernel sizes between 2 and 7
+                           ]),
+                           iaa.Sharpen(alpha=(0, 1.0), lightness=(0.75, 1.5)),  # sharpen images
+                           # iaa.Emboss(alpha=(0, 1.0), strength=(0, 2.0)),  # emboss images
+                           # search either for all edges or for directed edges,
+                           # blend the result with the original image using a blobby mask
+                           # iaa.SimplexNoiseAlpha(iaa.OneOf([
+                           #	iaa.EdgeDetect(alpha=(0.5, 1.0)),
+                           #	iaa.DirectedEdgeDetect(alpha=(0.5, 1.0), direction=(0.0, 1.0)),
+                           # ])),
+                           # iaa.AdditiveGaussianNoise(loc=0, scale=(0.0, 0.05*255), per_channel=0.5), # add gaussian noise to images
+                           # iaa.OneOf([
+                           #	iaa.Dropout((0.01, 0.1), per_channel=0.5), # randomly remove up to 10% of the pixels
+                           #	iaa.CoarseDropout((0.03, 0.15), size_percent=(0.02, 0.05), per_channel=0.2),
+                           # ]),
+                           # iaa.Invert(0.05, per_channel=True),  # invert color channels
+                           iaa.Add((-10, 10), per_channel=0.5),
+                           # change brightness of images (by -10 to 10 of original value)
+                           # iaa.AddToHueAndSaturation((-20, 20)),  # change hue and saturation
+                           # either change the brightness of the whole image (sometimes
+                           # per channel) or change the brightness of subareas
+                           iaa.OneOf([
+                               iaa.Multiply((0.9, 1.1), per_channel=0.5),
+                               # iaa.FrequencyNoiseAlpha(
+                               #     exponent=(-4, 0),
+                               #     first=iaa.Multiply((0.5, 1.5), per_channel=True),
+                               #     second=iaa.ContrastNormalization((0.5, 2.0))
+                               # )
+                           ]),
+                           iaa.ContrastNormalization((0.8, 1.2), per_channel=0.5),  # improve or worsen the contrast
+                           # iaa.Grayscale(alpha=(0.0, 1.0)),
+                           # sometimes(iaa.ElasticTransformation(alpha=(0.5, 1.0), sigma=0.25)),
+                           # move pixels locally around (with random strengths)
+                           # sometimes(iaa.PiecewiseAffine(scale=(0.01, 0.05))),
+                           # sometimes move parts of the image around
+                           # sometimes(iaa.PerspectiveTransform(scale=(0.01, 0.1)))
+                       ],
+                       random_order=True
+                       )
         ],
         random_order=True
     )
@@ -200,7 +200,7 @@ def augment_images(image):
 class FoodDataset(Dataset):
     """Food dataset."""
 
-    def __init__(self, root_dir, csv_file, transform, training=False):
+    def __init__(self, root_dir, csv_file, transform, training=True):
         """
         Args:
             csv_file (string): Path to the csv file with annotations.
@@ -247,8 +247,7 @@ class FoodDataset(Dataset):
 def main():
     global args, best_prec3
     args = parser.parse_args()
-    if args.tensorboard:
-        configure("runs/%s" % (args.name))
+    assert args.model in ["resnet152", "se_resnext101_32x4d"]
 
     # Data loading code
     # normalize = transforms.Normalize(mean=[x/255.0 for x in [125.3, 123.0, 113.9]],
@@ -280,35 +279,36 @@ def main():
 
     val_dataset = FoodDataset(val_data_path, val_label, transform_train, training=True)
 
-    batchsize = 786
+    batchsize = 768
 
     val_loader = torch.utils.data.DataLoader(dataset=val_dataset, batch_size=batchsize, num_workers=16)
 
-    model = pretrainedmodels.__dict__["resnet152"](num_classes=1000, pretrained='imagenet')
-    model = finetune.FineTuneModel(model)
-    model.train_params()
+    # model = pretrainedmodels.__dict__[args.model](num_classes=1000, pretrained='imagenet')
+    # model = finetune.FineTuneModel(model)
 
     # get the number of model parameters
-    print('Number of model parameters: {}'.format(sum([p.data.nelement() for p in model.parameters()])))
+    # print('Number of model parameters: {}'.format(sum([p.data.nelement() for p in model.parameters()])))
 
     # for training on multiple GPUs.
     # Use CUDA_VISIBLE_DEVICES=0,1 to specify which GPUs to use
-    model = torch.nn.DataParallel(model).cuda()
+    # model = torch.nn.DataParallel(model).cuda()
     # model = model.cuda()
 
     # optionally resume from a checkpoint
-    if args.resume:
-        if os.path.isfile(args.resume):
-            print("=> loading checkpoint '{}'".format(args.resume))
-            checkpoint = torch.load(args.resume)
-            args.start_epoch = checkpoint['epoch']
-            best_prec3 = checkpoint['best_prec3']
-            model.load_state_dict(checkpoint['state_dict'])
-            print("=> loaded checkpoint '{}' (epoch {})"
-                  .format(args.resume, checkpoint['epoch']))
-        else:
-            print("=> no checkpoint found at '{}'".format(args.resume))
-
+    models = []
+    for resume in args.resume.split(" + "):
+        if resume:
+            if os.path.isfile(resume):
+                print("=> loading checkpoint '{}'".format(resume))
+                checkpoint = torch.load(resume)
+                args.start_epoch = checkpoint['epoch']
+                best_prec3 = checkpoint['best_prec3']
+                models.append(checkpoint['model'])
+                print("=> loaded checkpoint '{}' (epoch {})"
+                      .format(resume, checkpoint['epoch']))
+            else:
+                print("=> no checkpoint found at '{}'".format(resume))
+    assert models, "no model matched"
     cudnn.benchmark = True
 
     # define loss function (criterion) and optimizer
@@ -326,9 +326,10 @@ def main():
 
     output = 0
     for epoch in range(args.start_epoch, args.epochs):
-        prec3, out = validate(val_loader, model, criterion, epoch)
-        output += out
-        print("aug accuracy", accuracy(output, target, (1, 3)))
+        for model in models:
+            prec3, out = validate(val_loader, model, criterion, epoch)
+            output += out
+        print("aug accuracy",epoch,  accuracy(output, target, (1, 3)))
 
         best_prec3 = max(prec3, best_prec3)
 
@@ -352,6 +353,11 @@ def validate(val_loader, model, criterion, epoch):
         target = target.type(torch.LongTensor)
         eye = torch.eye(211)
         target = eye[target]
+
+        if args.BCp:
+            # subtract mean from image
+            mean = torch.mean(input.view(input.shape[0], -1), dim=1)
+            input = input - mean.view(-1, 1, 1, 1)
 
         target = target.cuda(async=True)
         input = input.cuda()
