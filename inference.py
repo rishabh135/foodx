@@ -349,11 +349,11 @@ def batch_prediction(image_batch, model):
 		image_batch[:, :, image_batch.shape[2]-crop_size:, image_batch.shape[3]-crop_size:], # Lower Right
 		center_crop(image_batch, (crop_size, crop_size)),
 		
-		#flipped_X[:299,:299, :],
-		#flipped_X[:299, flipped_X.shape[1]-299:, :],
-		#flipped_X[flipped_X.shape[0]-299:, :299, :],
-		#flipped_X[flipped_X.shape[0]-299:, flipped_X.shape[1]-299:, :],
-		#center_crop(flipped_X, (299, 299))
+		flipped_X[:, :crop_size,:crop_size, :],
+		flipped_X[:, :crop_size, flipped_X.shape[1]-299:, :],
+		flipped_X[flipped_X.shape[0]-299:, :299, :],
+		flipped_X[flipped_X.shape[0]-299:, flipped_X.shape[1]-299:, :],
+		center_crop(flipped_X, (299, 299))
 	]
 	
 	
