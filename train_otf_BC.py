@@ -102,7 +102,8 @@ parser.add_argument('--tensorboard',
 parser.add_argument('--validate_freq', '-valf', default=2, type=int,
                     help='validate frequency (default: 100)')
 parser.add_argument('--BC', help='Use BC learning', action='store_true')
-parser.add_argument('--BCp', help='Use BC learning', action='store_true')
+parser.add_argument('--BCp', help='Use BC+ learning', action='store_true')
+parser.add_argument('--class_weight', help='Use class weight', action='store_true')
 parser.add_argument('--model', default="resnet152", help='Use BC learning')
 
 parser.set_defaults(augment=True)
@@ -227,6 +228,9 @@ class FoodDataset(Dataset):
         data = pd.read_csv(csv_file, header=None, names=["name_of_pic", "noisy_label"])
         # print(selfdata.head())
         self.labels = data.noisy_label.tolist()
+        num_label = np.bincount(self.labels)
+        self.label_weight = 1 / num_label
+        self.label_weight = self.label_weight / np.mean(self.label_weight)
         # read addresses and labels from the 'train' folder
         self.pic_names = data.name_of_pic.tolist()
         # print("Length of val data is : ",len(val_data))
@@ -500,7 +504,12 @@ def train(train_loader, model, criterion, optimizer, epoch):
 
         # compute output
         output = model(input_var)
-        loss = criterion(F.log_softmax(output, 1), target_var) / batchsize
+
+        if args.class_weight:
+            loss = (target_var * (torch.log(target_var + 1e-10) - F.log_softmax(output, 1))).sum() / batchsize
+
+        else:
+            loss = criterion(F.log_softmax(output, 1), target_var) / batchsize
 
         prec3 = accuracy(output.data, target,
                          topk=(1, 3))  ## res is of shape [2,B] representing top 1 and top k accuracy respectively
@@ -557,7 +566,12 @@ def validate(val_loader, model, criterion, epoch):
         # compute output
         with torch.no_grad():
             output = model(input_var)
-        loss = criterion(F.log_softmax(output, 1), target_var) / batchsize
+
+        if args.class_weight:
+            loss = (target_var * (torch.log(target_var + 1e-10) - F.log_softmax(output, 1))).sum() / batchsize
+
+        else:
+            loss = criterion(F.log_softmax(output, 1), target_var) / batchsize
 
         # measure accuracy and record loss
         prec3 = accuracy(output.data, target, topk=(1, 3))
@@ -622,7 +636,9 @@ class AverageMeter(object):
 
 def adjust_learning_rate(optimizer, epoch):
     """Sets the learning rate to the initial LR divided by 5 at 60th, 120th and 160th epochs"""
-    lr = args.lr * ((0.2 ** int(epoch >= 120)) * (0.2 ** int(epoch >= 160)) * (0.2 ** int(epoch >= 200)))
+    lr = args.lr * (
+        (0.2 ** int(epoch >= 100)) * (0.2 ** int(epoch >= 120)) * (0.2 ** int(epoch >= 160)) * (
+        0.2 ** int(epoch >= 200)))
     # log to TensorBoard
     if args.tensorboard:
         log_value('learning_rate', lr, epoch)
