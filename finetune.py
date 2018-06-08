@@ -36,8 +36,11 @@ class FineTuneModel(nn.Module):
 
 
 if __name__ == "__main__":
-    model_name = "resnet152"
+    print(print(pretrainedmodels.model_names))
+    model_name = "nasnetalarge"  # "resnet152"
+    print(pretrainedmodels.pretrained_settings[model_name])
     model = pretrainedmodels.__dict__[model_name](num_classes=1000, pretrained='imagenet')
+    print(list(model.children())[-3:])
     model = FineTuneModel(model)
-    model.train_params()
-    print(list(filter(lambda p: p.requires_grad, model.parameters())))
+    # model.train_params()
+    # print(list(filter(lambda p: p.requires_grad, model.parameters())))
