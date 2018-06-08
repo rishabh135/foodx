@@ -68,7 +68,7 @@ parser.add_argument('--no-augment', dest='augment', action='store_false',
 					help='whether to use standard augmentation (default: True)')
 parser.add_argument('--resume', default='', type=str,
 					help='path to latest checkpoint (default: none)')
-parser.add_argument('--name', default='WideResNet-ifood-28-10', type=str,
+parser.add_argument('--name', default='ResNet101-ifood-28-10', type=str,
 					help='name of experiment')
 parser.add_argument('--tensorboard',
 					help='Log progress to TensorBoard', action='store_true')

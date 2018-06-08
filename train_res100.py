@@ -53,7 +53,7 @@ from torch.autograd import Variable
 from skimage import io, transform
 
 from wideresnet import WideResNet
-
+from resnet import ResNet
 # Ignore warnings
 import warnings
 
@@ -72,7 +72,7 @@ parser.add_argument('--epochs', default=400, type=int,
                     help='number of total epochs to run')
 parser.add_argument('--start-epoch', default=0, type=int,
                     help='manual epoch number (useful on restarts)')
-parser.add_argument('-b', '--batch-size', default=128, type=int,
+parser.add_argument('-b', '--batch-size', default=32, type=int,
                     help='mini-batch size (default: 128)')
 parser.add_argument('--lr', '--learning-rate', default=0.001, type=float,
                     help='initial learning rate')
@@ -237,7 +237,7 @@ class FoodDataset(Dataset):
         img_name = os.path.join(self.root_dir, self.pic_names[idx])
 
         image = ndimage.imread(img_name, mode="RGB")
-        image = misc.imresize(image, (192, 192), mode='RGB')
+        image = misc.imresize(image, (224, 224), mode='RGB')
         # image = transform.resize(image , (128,128))
         #
         # image = resizeimage.resize_cover(Image.open(img_name), [128, 128])
@@ -286,7 +286,7 @@ def main():
             #					(4,4,4,4),mode='reflect').data.squeeze()),
             transforms.ToPILImage(),
             # transforms.Resize(192,192),
-            transforms.RandomCrop(128),
+            transforms.RandomCrop(224),
             transforms.RandomHorizontalFlip(),
             transforms.ToTensor()
             # normalize,
@@ -300,7 +300,7 @@ def main():
 
     transform_test = transforms.Compose([transforms.ToPILImage(),
                                          # transforms.Resize(192,192),
-                                         transforms.CenterCrop(128),
+                                         transforms.CenterCrop(224),
                                          # transforms.RandomHorizontalFlip(),
                                          transforms.ToTensor()
                                          # normalize
@@ -333,9 +333,9 @@ def main():
     #                         28, 28,
     #                         transformations)
 
-    train_loader = torch.utils.data.DataLoader(dataset=train_dataset, batch_size=256, shuffle=True, num_workers=16)
+    train_loader = torch.utils.data.DataLoader(dataset=train_dataset, batch_size=40, shuffle=True, num_workers=4)
 
-    val_loader = torch.utils.data.DataLoader(dataset=val_dataset, batch_size=128, num_workers=16)
+    val_loader = torch.utils.data.DataLoader(dataset=val_dataset, batch_size=40, num_workers=4)
 
     # 	train_labels = pd.read_csv('./data/labels/train_info.csv')
 
@@ -359,14 +359,14 @@ def main():
 
 
     # create model
-    model = WideResNet(args.layers, 211, args.widen_factor, dropRate=args.droprate)
+    model = ResNet(option='resnet152', class_size=211)
 
     # get the number of model parameters
     print('Number of model parameters: {}'.format(sum([p.data.nelement() for p in model.parameters()])))
 
     # for training on multiple GPUs.
     # Use CUDA_VISIBLE_DEVICES=0,1 to specify which GPUs to use
-    model = torch.nn.DataParallel(model).cuda()
+    model = model.cuda()#torch.nn.DataParallel(model).cuda()
     # model = model.cuda()
 
     # optionally resume from a checkpoint
@@ -382,18 +382,18 @@ def main():
         else:
             print("=> no checkpoint found at '{}'".format(args.resume))
 
-    cudnn.benchmark = True
+    #cudnn.benchmark = True
 
     # define loss function (criterion) and optimizer
-    criterion = nn.KLDivLoss().cuda()
-    # optimizer = torch.optim.SGD(model.parameters(), args.lr,
-    #                             momentum=args.momentum, nesterov=args.nesterov,
-    #                             weight_decay=args.weight_decay)
-    optimizer = torch.optim.Adam(model.parameters(), args.lr, weight_decay=args.weight_decay)
+    criterion = nn.CrossEntropyLoss().cuda()#nn.KLDivLoss().cuda()
+    optimizer = torch.optim.SGD(model.parameters(), args.lr,
+                                 momentum=args.momentum,# nesterov=args.nesterov,
+                                 weight_decay=args.weight_decay)
+    #optimizer = torch.optim.Adam(model.parameters(), args.lr, weight_decay=args.weight_decay)
 
     for epoch in range(args.start_epoch, args.epochs):
         adjust_learning_rate(optimizer, epoch + 1)
-
+        #prec3 = validate(val_loader, model, criterion, epoch)
         # train for one epoch
         train(train_loader, model, criterion, optimizer, epoch)
 
@@ -416,9 +416,9 @@ def main():
 def train(train_loader, model, criterion, optimizer, epoch):
     """Train for one epoch on the training set"""
 
-    print(torch.cuda.current_device())
-    print(torch.cuda.device_count())
-    print(torch.cuda.get_device_name(0))
+    #print(torch.cuda.current_device())
+    #print(torch.cuda.device_count())
+    #print(torch.cuda.get_device_name(0))
 
     batch_time = AverageMeter()
     losses = AverageMeter()
@@ -433,9 +433,9 @@ def train(train_loader, model, criterion, optimizer, epoch):
         target = target.type(torch.LongTensor)
         batchsize = inp.shape[0] // 2
         rand = torch.rand(batchsize)
-        inp = inp[:batchsize] * rand.view(-1, 1, 1, 1) + inp[-batchsize:] * (1 - rand.view(-1, 1, 1, 1))
+        #inp = inp[:batchsize] #* rand.view(-1, 1, 1, 1) + inp[-batchsize:] * (1 - rand.view(-1, 1, 1, 1))
         eye = torch.eye(211)
-        target = eye[target[:batchsize]] * rand.view(-1, 1) + eye[target[-batchsize:]] * (1 - rand.view(-1, 1))
+        #target = target#eye[target]# * rand.view(-1, 1) + eye[target[-batchsize:]] * (1 - rand.view(-1, 1))
 
         target = target.cuda(async=True)
         inp = inp.cuda()
@@ -445,7 +445,7 @@ def train(train_loader, model, criterion, optimizer, epoch):
 
         # compute output
         output = model(input_var)
-        loss = criterion(F.log_softmax(output, 1), target_var)
+        loss = criterion(output, target_var)
 
         prec3 = accuracy(output.data, target,
                          topk=(1, 3))  ## res is of shape [2,B] representing top 1 and top k accuracy respectively
@@ -485,35 +485,36 @@ def validate(val_loader, model, criterion, epoch):
 
     for i, (input, target) in enumerate(val_loader):
         # mix
-        target = target.type(torch.LongTensor)
-        eye = torch.eye(211)
-        target = eye[target]
+        with torch.no_grad():
+            target = target.type(torch.LongTensor)
+            #eye = torch.eye(211)
+            #target = target#eye[target]
 
-        target = target.cuda(async=True)
-        input = input.cuda()
-        input_var = torch.autograd.Variable(input, volatile=True)
-        target_var = torch.autograd.Variable(target, volatile=True)
+            target = target.cuda(async=True)
+            input = input.cuda()
+            input_var = torch.autograd.Variable(input, volatile=True)
+            target_var = torch.autograd.Variable(target, volatile=True)
 
-        # compute output
-        output = model(input_var)
-        loss = criterion(F.log_softmax(output, 1), target_var)
+            # compute output
+            output = model(input_var)
+            loss = criterion(output, target_var)
 
-        # measure accuracy and record loss
-        prec3 = accuracy(output.data, target, topk=(1, 3))
-        losses.update(loss.data[0], input.size(0))
-        top3.update(prec3, input.size(0))
+            # measure accuracy and record loss
+            prec3 = accuracy(output.data, target, topk=(1, 3))
+            losses.update(loss.data[0], input.size(0))
+            top3.update(prec3, input.size(0))
 
-        # measure elapsed time
-        batch_time.update(time.time() - end)
-        end = time.time()
+            # measure elapsed time
+            batch_time.update(time.time() - end)
+            end = time.time()
 
-        if i % args.print_freq == 0:
-            print('Test: [{0}/{1}]\t'
-                  'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
-                  'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
-                  'Prec@3 {top3.val:.3f} ({top3.avg:.3f})'.format(
-                i, len(val_loader), batch_time=batch_time, loss=losses,
-                top3=top3))
+            if i % args.print_freq == 0:
+                print('Test: [{0}/{1}]\t'
+                      'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
+                      'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
+                      'Prec@3 {top3.val:.3f} ({top3.avg:.3f})'.format(
+                    i, len(val_loader), batch_time=batch_time, loss=losses,
+                    top3=top3))
 
     print(' * Prec@3 {top3.avg:.3f}'.format(top3=top3))
     # log to TensorBoard
@@ -573,7 +574,7 @@ def accuracy(output, target, topk=(1,)):
     """Computes the precision@k for the specified values of k"""
     maxk = max(topk)
     batch_size = target.size(0)
-    target = torch.argmax(target, dim=1)
+    #target = torch.argmax(target, dim=1)
     _, pred = output.topk(maxk, 1, True, True)
     pred = pred.t()
     correct = pred.eq(target.view(1, -1).expand_as(pred))

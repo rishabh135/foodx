@@ -34,7 +34,7 @@ import imgaug as ia
 from imgaug import augmenters as iaa
 import numpy as np
 
-#from resizeimage import resizeimage
+# from resizeimage import resizeimage
 
 
 from scipy import ndimage
@@ -53,7 +53,7 @@ from torch.autograd import Variable
 from skimage import io, transform
 
 from wideresnet import WideResNet
-
+from resnet import ResNet
 # Ignore warnings
 import warnings
 
@@ -72,13 +72,13 @@ parser.add_argument('--epochs', default=400, type=int,
                     help='number of total epochs to run')
 parser.add_argument('--start-epoch', default=0, type=int,
                     help='manual epoch number (useful on restarts)')
-parser.add_argument('-b', '--batch-size', default=128, type=int,
+parser.add_argument('-b', '--batch-size', default=32, type=int,
                     help='mini-batch size (default: 128)')
 parser.add_argument('--lr', '--learning-rate', default=0.001, type=float,
                     help='initial learning rate')
 parser.add_argument('--momentum', default=0.9, type=float, help='momentum')
 parser.add_argument('--nesterov', default=True, type=bool, help='nesterov momentum')
-parser.add_argument('--weight-decay', '--wd', default=0, type=float,
+parser.add_argument('--weight-decay', '--wd', default=5e-4, type=float,
                     help='weight decay (default: 5e-4)')
 parser.add_argument('--print-freq', '-p', default=100, type=int,
                     help='print frequency (default: 10)')
@@ -237,7 +237,7 @@ class FoodDataset(Dataset):
         img_name = os.path.join(self.root_dir, self.pic_names[idx])
 
         image = ndimage.imread(img_name, mode="RGB")
-        image = misc.imresize(image, (192, 192), mode='RGB')
+        image = misc.imresize(image, (224, 224), mode='RGB')
         # image = transform.resize(image , (128,128))
         #
         # image = resizeimage.resize_cover(Image.open(img_name), [128, 128])
@@ -286,7 +286,7 @@ def main():
             #					(4,4,4,4),mode='reflect').data.squeeze()),
             transforms.ToPILImage(),
             # transforms.Resize(192,192),
-            transforms.RandomCrop(128),
+            transforms.RandomCrop(224),
             transforms.RandomHorizontalFlip(),
             transforms.ToTensor()
             # normalize,
@@ -300,7 +300,7 @@ def main():
 
     transform_test = transforms.Compose([transforms.ToPILImage(),
                                          # transforms.Resize(192,192),
-                                         transforms.CenterCrop(128),
+                                         transforms.CenterCrop(224),
                                          # transforms.RandomHorizontalFlip(),
                                          transforms.ToTensor()
                                          # normalize
@@ -333,9 +333,9 @@ def main():
     #                         28, 28,
     #                         transformations)
 
-    train_loader = torch.utils.data.DataLoader(dataset=train_dataset, batch_size=256, shuffle=True, num_workers=16)
+    train_loader = torch.utils.data.DataLoader(dataset=train_dataset, batch_size=32, shuffle=True, num_workers=4)
 
-    val_loader = torch.utils.data.DataLoader(dataset=val_dataset, batch_size=128, num_workers=16)
+    val_loader = torch.utils.data.DataLoader(dataset=val_dataset, batch_size=64, num_workers=4)
 
     # 	train_labels = pd.read_csv('./data/labels/train_info.csv')
 
@@ -359,14 +359,16 @@ def main():
 
 
     # create model
-    model = WideResNet(args.layers, 211, args.widen_factor, dropRate=args.droprate)
+    model_one = ResNet(option='resnet101', class_size=211)
+    model_two = ResNet(option='resnet101', class_size=211)
 
     # get the number of model parameters
-    print('Number of model parameters: {}'.format(sum([p.data.nelement() for p in model.parameters()])))
+    print('Number of model parameters: {}'.format(sum([p.data.nelement() for p in model_one.parameters()])))
 
     # for training on multiple GPUs.
     # Use CUDA_VISIBLE_DEVICES=0,1 to specify which GPUs to use
-    model = torch.nn.DataParallel(model).cuda()
+    model_one = model_one.cuda()  # torch.nn.DataParallel(model).cuda()
+    model_two = model_two.cuda()  # torch.nn.DataParallel(model).cuda()
     # model = model.cuda()
 
     # optionally resume from a checkpoint
@@ -382,50 +384,52 @@ def main():
         else:
             print("=> no checkpoint found at '{}'".format(args.resume))
 
-    cudnn.benchmark = True
+    # cudnn.benchmark = True
 
     # define loss function (criterion) and optimizer
-    criterion = nn.KLDivLoss().cuda()
-    # optimizer = torch.optim.SGD(model.parameters(), args.lr,
-    #                             momentum=args.momentum, nesterov=args.nesterov,
-    #                             weight_decay=args.weight_decay)
-    optimizer = torch.optim.Adam(model.parameters(), args.lr, weight_decay=args.weight_decay)
+    criterion = nn.CrossEntropyLoss().cuda()  # nn.KLDivLoss().cuda()
+    optimizer = torch.optim.SGD(list(model_one.parameters()) + list(model_two.parameters()), args.lr,
+                                momentum=args.momentum,  # nesterov=args.nesterov,
+                                weight_decay=args.weight_decay)
+    # optimizer = torch.optim.Adam(model.parameters(), args.lr, weight_decay=args.weight_decay)
 
     for epoch in range(args.start_epoch, args.epochs):
         adjust_learning_rate(optimizer, epoch + 1)
-
+        # prec3 = validate(val_loader, model, criterion, epoch)
         # train for one epoch
-        train(train_loader, model, criterion, optimizer, epoch)
+        train(train_loader, model_one, model_two, criterion, optimizer, epoch)
 
         if epoch % args.validate_freq == 0:
             # evaluate on validation set
-            prec3 = validate(val_loader, model, criterion, epoch)
+            prec3 = validate(val_loader, model_one, criterion, epoch)
 
         # remember best prec@1 and save checkpoint
         is_best = prec3 > best_prec3
         best_prec1 = max(prec3, best_prec3)
         save_checkpoint({
             'epoch': epoch + 1,
-            'state_dict': model.state_dict(),
+            'state_dict': model_one.state_dict(),
+
             'best_prec1': best_prec3,
         }, is_best)
 
     print('Best accuracy: ', best_prec1)
 
 
-def train(train_loader, model, criterion, optimizer, epoch):
+def train(train_loader, model_one,  model_two, criterion, optimizer, epoch):
     """Train for one epoch on the training set"""
 
-    print(torch.cuda.current_device())
-    print(torch.cuda.device_count())
-    print(torch.cuda.get_device_name(0))
+    # print(torch.cuda.current_device())
+    # print(torch.cuda.device_count())
+    # print(torch.cuda.get_device_name(0))
 
     batch_time = AverageMeter()
     losses = AverageMeter()
     top3 = AverageMeter()
 
     # switch to train mode
-    model.train()
+    model_one.train()
+    model_two.train()
 
     end = time.time()
     for i, (inp, target) in enumerate(train_loader):
@@ -433,9 +437,9 @@ def train(train_loader, model, criterion, optimizer, epoch):
         target = target.type(torch.LongTensor)
         batchsize = inp.shape[0] // 2
         rand = torch.rand(batchsize)
-        inp = inp[:batchsize] * rand.view(-1, 1, 1, 1) + inp[-batchsize:] * (1 - rand.view(-1, 1, 1, 1))
+        # inp = inp[:batchsize] #* rand.view(-1, 1, 1, 1) + inp[-batchsize:] * (1 - rand.view(-1, 1, 1, 1))
         eye = torch.eye(211)
-        target = eye[target[:batchsize]] * rand.view(-1, 1) + eye[target[-batchsize:]] * (1 - rand.view(-1, 1))
+        # target = target#eye[target]# * rand.view(-1, 1) + eye[target[-batchsize:]] * (1 - rand.view(-1, 1))
 
         target = target.cuda(async=True)
         inp = inp.cuda()
@@ -444,10 +448,13 @@ def train(train_loader, model, criterion, optimizer, epoch):
         target_var = torch.autograd.Variable(target)
 
         # compute output
-        output = model(input_var)
-        loss = criterion(F.log_softmax(output, 1), target_var)
-
-        prec3 = accuracy(output.data, target,
+        output1 = model_one(input_var)
+        loss = criterion(output1, target_var)
+        output2 = model_two(input_var)
+        loss += criterion(output2, target_var)
+        diff = torch.mean(kl_loss(F.softmax(output1), F.softmax(output2)) +kl_loss(F.softmax(output2), F.softmax(output1)))
+        loss += diff
+        prec3 = accuracy(output1.data, target,
                          topk=(1, 3))  ## res is of shape [2,B] representing top 1 and top k accuracy respectively
         losses.update(loss.data[0], inp.size(0))
         top3.update(prec3, inp.size(0))
@@ -455,39 +462,41 @@ def train(train_loader, model, criterion, optimizer, epoch):
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
-
+        #print(top3.val)
         if i % args.print_freq == 0:
             # measure elapsed time
             batch_time.update(time.time() - end)
             end = time.time()
-            print('Epoch: [{0}][{1}/{2}]\t'
+            print('Epoch: [{0}][{1}/{2}]\t diff {3}'
                   'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
                   'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
-                  'Prec@3 {top3.val:.3f} ({top3.avg:.3f})'.format(
-                epoch, i, len(train_loader), batch_time=batch_time,
+                  'Prec@3 {top3.val:.3f} ({top3.avg:.3f}) '.format(
+                epoch, i, len(train_loader), diff.data[0], batch_time=batch_time,
                 loss=losses, top3=top3))
     # log to TensorBoard
     if args.tensorboard:
         log_value('train_loss', losses.avg, epoch)
         log_value('train_acc', top1.avg, epoch)
 
-
-def validate(val_loader, model, criterion, epoch):
+def kl_loss(prob1,prob2):
+    return torch.sum(prob1*torch.log(prob1/prob2+1e-6),1)
+def validate(val_loader, model_one, criterion, epoch):
     """Perform validation on the validation set"""
     batch_time = AverageMeter()
     losses = AverageMeter()
     top3 = AverageMeter()
 
     # switch to evaluate mode
-    model.eval()
+    model_one.eval()
 
     end = time.time()
 
     for i, (input, target) in enumerate(val_loader):
         # mix
+        #with torch.no_grad():
         target = target.type(torch.LongTensor)
-        eye = torch.eye(211)
-        target = eye[target]
+        # eye = torch.eye(211)
+        # target = target#eye[target]
 
         target = target.cuda(async=True)
         input = input.cuda()
@@ -495,8 +504,8 @@ def validate(val_loader, model, criterion, epoch):
         target_var = torch.autograd.Variable(target, volatile=True)
 
         # compute output
-        output = model(input_var)
-        loss = criterion(F.log_softmax(output, 1), target_var)
+        output = model_one(input_var)
+        loss = criterion(output, target_var)
 
         # measure accuracy and record loss
         prec3 = accuracy(output.data, target, topk=(1, 3))
@@ -514,7 +523,6 @@ def validate(val_loader, model, criterion, epoch):
                   'Prec@3 {top3.val:.3f} ({top3.avg:.3f})'.format(
                 i, len(val_loader), batch_time=batch_time, loss=losses,
                 top3=top3))
-
     print(' * Prec@3 {top3.avg:.3f}'.format(top3=top3))
     # log to TensorBoard
     if args.tensorboard:
@@ -561,7 +569,7 @@ class AverageMeter(object):
 
 def adjust_learning_rate(optimizer, epoch):
     """Sets the learning rate to the initial LR divided by 5 at 60th, 120th and 160th epochs"""
-    lr = args.lr * ((0.2 ** int(epoch >= 120)) * (0.2 ** int(epoch >= 240)) * (0.2 ** int(epoch >= 320)))
+    lr = args.lr * ((0.1 ** int(epoch >= 100)) * (0.1 ** int(epoch >= 200)) * (0.1 ** int(epoch >= 300)))
     # log to TensorBoard
     if args.tensorboard:
         log_value('learning_rate', lr, epoch)
@@ -573,14 +581,15 @@ def accuracy(output, target, topk=(1,)):
     """Computes the precision@k for the specified values of k"""
     maxk = max(topk)
     batch_size = target.size(0)
-    target = torch.argmax(target, dim=1)
+    # target = torch.argmax(target, dim=1)
     _, pred = output.topk(maxk, 1, True, True)
     pred = pred.t()
     correct = pred.eq(target.view(1, -1).expand_as(pred))
 
     correct_k = correct[:maxk].view(-1).float().sum(0)
     res = (correct_k.mul_(100.0 / batch_size))
-
+    #print(res)
+    res = res.cpu().numpy()[0]
     return res
 
 
