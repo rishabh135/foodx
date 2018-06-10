@@ -338,7 +338,7 @@ def batch_prediction(image_batch, model):
 	##print(image_batch.shape)
 	#itt = input()
 	
-	
+	flipped_X = np.fliplr(img)
 	
 	crop_size = args.crop_size
 	
@@ -357,7 +357,7 @@ def batch_prediction(image_batch, model):
 	]
 	
 	
-	print("shape of crop for first image ",crops[0].shape)
+	#print("shape of crop for first image ",crops[0].shape)
 	
 	prob_classes = []
 	y_pred_classes = []
@@ -367,7 +367,7 @@ def batch_prediction(image_batch, model):
 		with torch.no_grad():
 			output = model(crops[iy])
 		
-		prob , y_pred = output.data.topk(3, 1, True, True) 
+		prob , y_pred = output.data.topk(10, 1, True, True) 
 		output_controlled = torch.zeros(output.data.shape).cuda()
 		output_controlled[np.arange(args.batch_size*3)// 3, y_pred.view(-1)] = prob.view(-1)
 		
@@ -380,50 +380,7 @@ def batch_prediction(image_batch, model):
 	
 	
 	prob , y_pred = final_prob.data.topk(3, 1, True, True) 
-# 	print(prob)
-# 	print(y_pred)
-# 	print(y_pred.shape)
-	
-# 	print(prob_classes[0].shape)
-# 	itt = input()
-	
-# 	# tmp = (itertools.chain.from_iterable(prob_classes))
-# 	# print (tmp.shape)
-	
-# 	combining_prob = torch.cat(prob_classes,dim=1)
-# 	combining_classes = torch.cat(y_pred_classes,dim=1)
-	# combining_prob = list(zip(f) for f in prob_classes)
-	# combining_ind = list(zip(f) for f in y_pred_classes)
-	#print(combining_prob.shape)
-	
-	
-	# print("important : ", combining_prob[0][0].shape)
-	# print(combining_prob[0])
-	
-# 	preds = np.argmax(y_pred, axis=1)
-	
-	#top_n_preds= np.argpartition(combining_classes, -top_n)[:,-top_n:]
-	#print(top_n_preds)
-# 	if debug:
-# 		print('Top-1 Predicted:', preds)
-# 		print('Top-3 Predicted:', top_n_preds)
-# 		#print('True Label:', y_test[ix])
-	
-	
-	
-# 	for ix in range(len(image_batch)):
-# 		if ix % args.batch_size-1 == 0:
-# 			print("Completed batch ",ix)
-# 		preds_10_crop[ix] = predict_10_crop(image_batch[ix], ix)
-		
 
-# 	preds_uniq = {k: np.unique(v[0]) for k, v in preds_10_crop.items()}
-# 	preds_hist = np.array([len(x) for x in preds_uniq.values()])
-
-# 	plt.hist(preds_hist, bins=11)
-# 	plt.title('Number of unique predictions per image')
-
-	
 	
 	
 	return y_pred
