@@ -105,99 +105,101 @@ parser.add_argument('--BC', help='Use BC learning', action='store_true')
 parser.add_argument('--BCp', help='Use BC+ learning', action='store_true')
 parser.add_argument('--class_weight', help='Use class weight', action='store_true')
 parser.add_argument('--model', default="resnet152", help='Use BC learning')
+parser.add_argument('--debug', help='debug mode', action='store_true')
 
 parser.set_defaults(augment=True)
 
 best_prec3 = 0
 
 
-def augment_images(image):
-    # Sometimes(0.5, ...) applies the given augmenter in 50% of all cases,
-    # e.g. Sometimes(0.5, GaussianBlur(0.3)) would blur roughly every second image.
-    sometimes = lambda aug: iaa.Sometimes(0.5, aug)
+class augment_images:
+    def __init__(self):
+        # Sometimes(0.5, ...) applies the given augmenter in 50% of all cases,
+        # e.g. Sometimes(0.5, GaussianBlur(0.3)) would blur roughly every second image.
+        sometimes = lambda aug: iaa.Sometimes(0.5, aug)
 
-    # Define our sequence of augmentation steps that will be applied to every image
-    # All augmenters with per_channel=0.5 will sample one value _per image_
-    # in 50% of all cases. In all other cases they will sample new values
-    # _per channel_.
-    seq = iaa.Sequential(
-        [
-            # apply the following augmenters to most images
-            iaa.Fliplr(0.5),  # horizontally flip 50% of all images
-            iaa.Flipud(0.2),  # vertically flip 20% of all images
-            # crop images by -5% to 10% of their height/width
-            # sometimes(iaa.CropAndPad(
-            #	percent=(-0.05, 0.1),
-            #	pad_mode=ia.ALL,
-            #	pad_cval=(0, 255)
-            # )),
-            sometimes(iaa.Affine(
-                scale={"x": (0.8, 1.2), "y": (0.8, 1.2)},
-                # scale images to 80-120% of their size, individually per axis
-                translate_percent={"x": (-0.2, 0.2), "y": (-0.2, 0.2)},  # translate by -20 to +20 percent (per axis)
-                rotate=(-45, 45),  # rotate by -45 to +45 degrees
-                shear=(-16, 16),  # shear by -16 to +16 degrees
-                order=[0, 1],  # use nearest neighbour or bilinear interpolation (fast)
-                cval=(0, 255),  # if mode is constant, use a cval between 0 and 255
-                mode=ia.ALL  # use any of scikit-image's warping modes (see 2nd image from the top for examples)
-            )),
-            # execute 0 to 5 of the following (less important) augmenters per image
-            # don't execute all of them, as that would often be way too strong
-            iaa.SomeOf((0, 5),
-                       [
-                           sometimes(iaa.Superpixels(p_replace=(0, 1.0), n_segments=(20, 200))),
-                           # convert images into their superpixel representation
-                           iaa.OneOf([
-                               iaa.GaussianBlur((0, 3.0)),  # blur images with a sigma between 0 and 3.0
-                               iaa.AverageBlur(k=(2, 7)),
-                               # blur image using local means with kernel sizes between 2 and 7
-                               iaa.MedianBlur(k=(3, 11)),
-                               # blur image using local medians with kernel sizes between 2 and 7
-                           ]),
-                           iaa.Sharpen(alpha=(0, 1.0), lightness=(0.75, 1.5)),  # sharpen images
-                           iaa.Emboss(alpha=(0, 1.0), strength=(0, 2.0)),  # emboss images
-                           # search either for all edges or for directed edges,
-                           # blend the result with the original image using a blobby mask
-                           # iaa.SimplexNoiseAlpha(iaa.OneOf([
-                           #	iaa.EdgeDetect(alpha=(0.5, 1.0)),
-                           #	iaa.DirectedEdgeDetect(alpha=(0.5, 1.0), direction=(0.0, 1.0)),
-                           # ])),
-                           # iaa.AdditiveGaussianNoise(loc=0, scale=(0.0, 0.05*255), per_channel=0.5), # add gaussian noise to images
-                           # iaa.OneOf([
-                           #	iaa.Dropout((0.01, 0.1), per_channel=0.5), # randomly remove up to 10% of the pixels
-                           #	iaa.CoarseDropout((0.03, 0.15), size_percent=(0.02, 0.05), per_channel=0.2),
-                           # ]),
-                           iaa.Invert(0.05, per_channel=True),  # invert color channels
-                           iaa.Add((-10, 10), per_channel=0.5),
-                           # change brightness of images (by -10 to 10 of original value)
-                           iaa.AddToHueAndSaturation((-20, 20)),  # change hue and saturation
-                           # either change the brightness of the whole image (sometimes
-                           # per channel) or change the brightness of subareas
-                           iaa.OneOf([
-                               iaa.Multiply((0.5, 1.5), per_channel=0.5),
-                               iaa.FrequencyNoiseAlpha(
-                                   exponent=(-4, 0),
-                                   first=iaa.Multiply((0.5, 1.5), per_channel=True),
-                                   second=iaa.ContrastNormalization((0.5, 2.0))
-                               )
-                           ]),
-                           iaa.ContrastNormalization((0.5, 2.0), per_channel=0.5),  # improve or worsen the contrast
-                           iaa.Grayscale(alpha=(0.0, 1.0)),
-                           sometimes(iaa.ElasticTransformation(alpha=(0.5, 3.5), sigma=0.25)),
-                           # move pixels locally around (with random strengths)
-                           sometimes(iaa.PiecewiseAffine(scale=(0.01, 0.05))),
-                           # sometimes move parts of the image around
-                           sometimes(iaa.PerspectiveTransform(scale=(0.01, 0.1)))
-                       ],
-                       random_order=True
-                       )
-        ],
-        random_order=True
-    )
+        # Define our sequence of augmentation steps that will be applied to every image
+        # All augmenters with per_channel=0.5 will sample one value _per image_
+        # in 50% of all cases. In all other cases they will sample new values
+        # _per channel_.
+        self.seq = iaa.Sequential(
+            [
+                # apply the following augmenters to most images
+                iaa.Fliplr(0.5),  # horizontally flip 50% of all images
+                iaa.Flipud(0.2),  # vertically flip 20% of all images
+                # crop images by -5% to 10% of their height/width
+                # sometimes(iaa.CropAndPad(
+                #	percent=(-0.05, 0.1),
+                #	pad_mode=ia.ALL,
+                #	pad_cval=(0, 255)
+                # )),
+                sometimes(iaa.Affine(
+                    scale={"x": (0.8, 1.2), "y": (0.8, 1.2)},
+                    # scale images to 80-120% of their size, individually per axis
+                    translate_percent={"x": (-0.2, 0.2), "y": (-0.2, 0.2)},
+                    # translate by -20 to +20 percent (per axis)
+                    rotate=(-45, 45),  # rotate by -45 to +45 degrees
+                    shear=(-16, 16),  # shear by -16 to +16 degrees
+                    order=[0, 1],  # use nearest neighbour or bilinear interpolation (fast)
+                    cval=(0, 255),  # if mode is constant, use a cval between 0 and 255
+                    mode=ia.ALL  # use any of scikit-image's warping modes (see 2nd image from the top for examples)
+                )),
+                # execute 0 to 5 of the following (less important) augmenters per image
+                # don't execute all of them, as that would often be way too strong
+                iaa.SomeOf((0, 5),
+                           [
+                               sometimes(iaa.Superpixels(p_replace=(0, 1.0), n_segments=(20, 200))),
+                               # convert images into their superpixel representation
+                               iaa.OneOf([
+                                   iaa.GaussianBlur((0, 3.0)),  # blur images with a sigma between 0 and 3.0
+                                   iaa.AverageBlur(k=(2, 7)),
+                                   # blur image using local means with kernel sizes between 2 and 7
+                                   iaa.MedianBlur(k=(3, 11)),
+                                   # blur image using local medians with kernel sizes between 2 and 7
+                               ]),
+                               iaa.Sharpen(alpha=(0, 1.0), lightness=(0.75, 1.5)),  # sharpen images
+                               iaa.Emboss(alpha=(0, 1.0), strength=(0, 2.0)),  # emboss images
+                               # search either for all edges or for directed edges,
+                               # blend the result with the original image using a blobby mask
+                               # iaa.SimplexNoiseAlpha(iaa.OneOf([
+                               #	iaa.EdgeDetect(alpha=(0.5, 1.0)),
+                               #	iaa.DirectedEdgeDetect(alpha=(0.5, 1.0), direction=(0.0, 1.0)),
+                               # ])),
+                               # iaa.AdditiveGaussianNoise(loc=0, scale=(0.0, 0.05*255), per_channel=0.5), # add gaussian noise to images
+                               # iaa.OneOf([
+                               #	iaa.Dropout((0.01, 0.1), per_channel=0.5), # randomly remove up to 10% of the pixels
+                               #	iaa.CoarseDropout((0.03, 0.15), size_percent=(0.02, 0.05), per_channel=0.2),
+                               # ]),
+                               iaa.Invert(0.05, per_channel=True),  # invert color channels
+                               iaa.Add((-10, 10), per_channel=0.5),
+                               # change brightness of images (by -10 to 10 of original value)
+                               iaa.AddToHueAndSaturation((-20, 20)),  # change hue and saturation
+                               # either change the brightness of the whole image (sometimes
+                               # per channel) or change the brightness of subareas
+                               iaa.OneOf([
+                                   iaa.Multiply((0.5, 1.5), per_channel=0.5),
+                                   iaa.FrequencyNoiseAlpha(
+                                       exponent=(-4, 0),
+                                       first=iaa.Multiply((0.5, 1.5), per_channel=True),
+                                       second=iaa.ContrastNormalization((0.5, 2.0))
+                                   )
+                               ]),
+                               iaa.ContrastNormalization((0.5, 2.0), per_channel=0.5),  # improve or worsen the contrast
+                               iaa.Grayscale(alpha=(0.0, 1.0)),
+                               sometimes(iaa.ElasticTransformation(alpha=(0.5, 3.5), sigma=0.25)),
+                               # move pixels locally around (with random strengths)
+                               sometimes(iaa.PiecewiseAffine(scale=(0.01, 0.05))),
+                               # sometimes move parts of the image around
+                               sometimes(iaa.PerspectiveTransform(scale=(0.01, 0.1)))
+                           ],
+                           random_order=True
+                           )
+            ],
+            random_order=True
+        )
 
-    # print("type ", type(image))
-
-    return seq.augment_image(image)
+    def __call__(self, image):
+        return self.seq.augment_image(image)
 
 
 # print(type(tmp))
@@ -212,54 +214,61 @@ def augment_images(image):
 
 
 
+
 class FoodDataset(Dataset):
     """Food dataset."""
 
-    def __init__(self, root_dir, csv_file, transform, training=False):
-        """
-        Args:
-            csv_file (string): Path to the csv file with annotations.
-            root_dir (string): Directory with all the images.
-            transform (callable, optional): Optional transform to be applied
-                on a sample.
-        """
-        # self.labels = pd.read_csv(csv_file)
-
-        data = pd.read_csv(csv_file, header=None, names=["name_of_pic", "noisy_label"])
-        # print(selfdata.head())
-        self.labels = data.noisy_label.tolist()
-        num_label = np.bincount(self.labels)
-        self.label_weight = 1 / num_label
-        self.label_weight = self.label_weight / np.mean(self.label_weight)
-        # read addresses and labels from the 'train' folder
-        self.pic_names = data.name_of_pic.tolist()
-        # print("Length of val data is : ",len(val_data))
-
-        self.root_dir = root_dir
+    def __init__(self, mode, images, transform, training=False):
         self.flag = training
         self.transform = transform
+        self.augment_images = augment_images()
+        if os.path.exists(f"/data/ugui0/noguchi/ifood/{mode}_images.npy"):
+            self.images = images
+
+            self.labels = np.load(f"/data/ugui0/noguchi/ifood/{mode}_labels.npy")
+            self.label_weight = np.load(f"/data/ugui0/noguchi/ifood/{mode}_label_weight.npy")
+            # read addresses and labels from the 'train' folder
+            self.pic_names = np.load(f"/data/ugui0/noguchi/ifood/{mode}_pic_names.npy")
+        else:
+            csv_file = f"/home/mil/gupta/ifood18/data/labels/{mode}_info.csv"
+            data = pd.read_csv(csv_file, header=None, names=["name_of_pic", "noisy_label"])
+
+            self.labels = data.noisy_label.tolist()
+            num_label = np.bincount(self.labels)
+            self.label_weight = 1 / num_label
+            self.label_weight = self.label_weight / np.mean(self.label_weight)
+            # read addresses and labels from the 'train' folder
+            self.pic_names = data.name_of_pic.tolist()
+
+            images = []
+            print("saving images")
+            for idx in tqdm(range(len(self.labels))):
+                img_name = os.path.join(f"/home/mil/gupta/ifood18/data/{mode}_set/", self.pic_names[idx])
+
+                image = ndimage.imread(img_name, mode="RGB")
+                image = misc.imresize(image, (256, 256), mode='RGB')
+                images.append(image)
+            self.images = np.array(images, dtype="uint8")
+            # save
+            np.save(f"/data/ugui0/noguchi/ifood/{mode}_labels.npy", self.labels)
+            np.save(f"/data/ugui0/noguchi/ifood/{mode}_label_weight.npy", self.label_weight)
+            np.save(f"/data/ugui0/noguchi/ifood/{mode}_pic_names.npy", self.pic_names)
+            np.save(f"/data/ugui0/noguchi/ifood/{mode}_images.npy", self.images)
+        self.label_weight = self.label_weight.astype("float32")
 
     def __len__(self):
         return len(self.labels)
 
     def __getitem__(self, idx):
-        img_name = os.path.join(self.root_dir, self.pic_names[idx])
+        image = self.images[idx]
 
-        image = ndimage.imread(img_name, mode="RGB")
-        image = misc.imresize(image, (256, 256), mode='RGB')
-        # image = transform.resize(image , (128,128))
-        #
-        # image = resizeimage.resize_cover(Image.open(img_name), [128, 128])
-
-        if (self.flag == True):
-            image = augment_images(image)
-
+        if self.flag:
+            image = self.augment_images(image)
         correct_label = self.labels[idx]
         # correct_label = correct_label.astype('int')
         if self.transform:
             image = self.transform(image)
-
-        return (image, correct_label)
+        return (image, correct_label, self.label_weight[correct_label])
 
 
 class H5Dataset(Dataset):
@@ -346,8 +355,42 @@ def main():
         train_label = "/home/mil/noguchi/M1/ifood/foodx/data/food101N/train_info.csv"
         val_label = "/home/mil/noguchi/M1/ifood/foodx/data/food101N/val_info.csv"
 
-    train_dataset = FoodDataset(train_data_path, train_label, transform_train, training=True)
-    val_dataset = FoodDataset(val_data_path, val_label, transform_test)
+    for mode in ["train", "val"]:
+        if not os.path.exists(f"/data/ugui0/noguchi/ifood/{mode}_images.npy"):
+            csv_file = f"/home/mil/gupta/ifood18/data/labels/{mode}_info.csv"
+            data = pd.read_csv(csv_file, header=None, names=["name_of_pic", "noisy_label"])
+
+            labels = data.noisy_label.tolist()
+            num_label = np.bincount(labels)
+            label_weight = 1 / num_label
+            label_weight = label_weight / np.mean(label_weight)
+            # read addresses and labels from the 'train' folder
+            pic_names = data.name_of_pic.tolist()
+
+            images = []
+            print("saving images")
+            for idx in tqdm(range(len(labels))):
+                img_name = os.path.join(f"/home/mil/gupta/ifood18/data/{mode}_set/", pic_names[idx])
+
+                image = ndimage.imread(img_name, mode="RGB")
+                image = misc.imresize(image, (256, 256), mode='RGB')
+                images.append(image)
+            images = np.array(images, dtype="uint8")
+            # save
+            np.save(f"/data/ugui0/noguchi/ifood/{mode}_labels.npy", labels)
+            np.save(f"/data/ugui0/noguchi/ifood/{mode}_label_weight.npy", label_weight)
+            np.save(f"/data/ugui0/noguchi/ifood/{mode}_pic_names.npy", pic_names)
+            np.save(f"/data/ugui0/noguchi/ifood/{mode}_images.npy", images)
+
+    if args.debug:
+        train_images = np.load(f"/data/ugui0/noguchi/ifood/train_images.npy", mmap_mode='r')
+        val_images = np.load(f"/data/ugui0/noguchi/ifood/val_images.npy", mmap_mode='r')
+    else:
+        train_images = np.load(f"/data/ugui0/noguchi/ifood/train_images.npy")
+        val_images = np.load(f"/data/ugui0/noguchi/ifood/val_images.npy")
+
+    train_dataset = FoodDataset("train", train_images, transform_train, training=True)
+    val_dataset = FoodDataset("val", val_images, transform_train)
 
     # custom_mnist_from_csv = \
     #    CustomDatasetFromCSV('../data/mnist_in_csv.csv',
@@ -467,9 +510,10 @@ def train(train_loader, model, criterion, optimizer, epoch):
     model.train()
 
     end = time.time()
-    for i, (inp, target) in enumerate(train_loader):
+    for i, (inp, target, class_weight) in enumerate(train_loader):
         target = target.cuda(async=True)
         inp = inp.cuda()
+        class_weight = class_weight.cuda()
         if args.BC:
             # mix
             target = target.type(torch.LongTensor)
@@ -506,7 +550,9 @@ def train(train_loader, model, criterion, optimizer, epoch):
         output = model(input_var)
 
         if args.class_weight:
-            loss = (target_var * (torch.log(target_var + 1e-10) - F.log_softmax(output, 1))).sum() / batchsize
+            loss = (target_var * (torch.log(target_var + 1e-10) - F.log_softmax(output, 1))).sum(1) * \
+                   class_weight[:batchsize] * class_weight[-batchsize:]
+            loss = loss.mean()
 
         else:
             loss = criterion(F.log_softmax(output, 1), target_var) / batchsize
@@ -547,7 +593,7 @@ def validate(val_loader, model, criterion, epoch):
 
     end = time.time()
 
-    for i, (input, target) in enumerate(val_loader):
+    for i, (input, target, class_weight) in enumerate(val_loader):
         batchsize = input.shape[0]
 
         target = target.type(torch.LongTensor)
@@ -560,6 +606,7 @@ def validate(val_loader, model, criterion, epoch):
 
         target = target.cuda(async=True)
         input = input.cuda()
+        class_weight = class_weight.cuda()
         input_var = torch.autograd.Variable(input, volatile=True)
         target_var = torch.autograd.Variable(target, volatile=True)
 
@@ -568,8 +615,9 @@ def validate(val_loader, model, criterion, epoch):
             output = model(input_var)
 
         if args.class_weight:
-            loss = (target_var * (torch.log(target_var + 1e-10) - F.log_softmax(output, 1))).sum() / batchsize
-
+            loss = (target_var * (torch.log(target_var + 1e-10) - F.log_softmax(output, 1))).sum(1) * \
+                   class_weight[:batchsize] * class_weight[-batchsize:]
+            loss = loss.mean()
         else:
             loss = criterion(F.log_softmax(output, 1), target_var) / batchsize
 
@@ -638,7 +686,7 @@ def adjust_learning_rate(optimizer, epoch):
     """Sets the learning rate to the initial LR divided by 5 at 60th, 120th and 160th epochs"""
     lr = args.lr * (
         (0.2 ** int(epoch >= 100)) * (0.2 ** int(epoch >= 120)) * (0.2 ** int(epoch >= 160)) * (
-        0.2 ** int(epoch >= 200)))
+            0.2 ** int(epoch >= 200)))
     # log to TensorBoard
     if args.tensorboard:
         log_value('learning_rate', lr, epoch)
