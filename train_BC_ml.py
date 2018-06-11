@@ -399,7 +399,7 @@ def main():
     #                         28, 28,
     #                         transformations)
 
-    batchsize = 64
+    batchsize = 40
     use_BC = args.BC or args.BCp
     train_loader = torch.utils.data.DataLoader(dataset=train_dataset, batch_size=batchsize * (1 + use_BC),
                                                shuffle=True, num_workers=8)
