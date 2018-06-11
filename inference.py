@@ -307,13 +307,16 @@ def main():
 
 
     output = 0
+    outputs = []
     for epoch in range(0, args.epochs):
         for model in models:
             out = validate(test_loader, model, criterion, epoch)
             output += out
+            outputs.append(out.cpu().numpy())
 
+        np.save("/data/ugui0/noguchi/ifood/outputs.npy", np.array(outputs))
         _, pred = output.topk(3, 1, True, True)
-        pred = pred.cpu().numpy()
+        pred = pred.cpu().data
         name = test_dataset.pic_names
 
         with open(f"{args.output_text}_{epoch}", "w") as file:
