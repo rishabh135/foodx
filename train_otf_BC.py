@@ -105,9 +105,8 @@ parser.add_argument('--BC', help='Use BC learning', action='store_true')
 parser.add_argument('--BCp', help='Use BC+ learning', action='store_true')
 parser.add_argument('--class_weight', help='Use class weight', action='store_true')
 parser.add_argument('--model', default="resnet152", help='Use BC learning')
-parser.add_argument('--debug', help='debug mode', action='store_true')
+parser.add_argument('--debug', "-d", help='debug mode', action='store_true')
 parser.add_argument('--clean', help='use clean dataset', action='store_true')
-
 
 parser.set_defaults(augment=True)
 
@@ -262,9 +261,6 @@ class FoodDataset(Dataset):
             self.labels = self.labels[clean_idx]
             self.pic_names = self.pic_names[clean_idx]
 
-
-
-
     def __len__(self):
         return len(self.labels)
 
@@ -335,7 +331,6 @@ def main():
                                          ])
 
     assert (args.dataset in ["ifood", "food101N"])
-
 
     for mode in ["train", "val"]:
         if not os.path.exists(f"/data/ugui0/noguchi/ifood/{mode}_images.npy"):
