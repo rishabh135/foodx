@@ -106,6 +106,8 @@ parser.add_argument('--BCp', help='Use BC+ learning', action='store_true')
 parser.add_argument('--class_weight', help='Use class weight', action='store_true')
 parser.add_argument('--model', default="resnet152", help='Use BC learning')
 parser.add_argument('--debug', help='debug mode', action='store_true')
+parser.add_argument('--clean', help='use clean dataset', action='store_true')
+
 
 parser.set_defaults(augment=True)
 
@@ -218,7 +220,7 @@ class augment_images:
 class FoodDataset(Dataset):
     """Food dataset."""
 
-    def __init__(self, mode, images, transform, training=False):
+    def __init__(self, mode, images, transform, training=False, clean=False):
         self.flag = training
         self.transform = transform
         self.augment_images = augment_images()
@@ -255,6 +257,13 @@ class FoodDataset(Dataset):
             np.save(f"/data/ugui0/noguchi/ifood/{mode}_pic_names.npy", self.pic_names)
             np.save(f"/data/ugui0/noguchi/ifood/{mode}_images.npy", self.images)
         self.label_weight = self.label_weight.astype("float32")
+        if clean:
+            clean_idx = np.load("/data/ugui0/noguchi/ifood/train_clean_labels.npy")
+            self.labels = self.labels[clean_idx]
+            self.pic_names = self.pic_names[clean_idx]
+
+
+
 
     def __len__(self):
         return len(self.labels)
@@ -389,7 +398,17 @@ def main():
         train_images = np.load(f"/data/ugui0/noguchi/ifood/train_images.npy")
         val_images = np.load(f"/data/ugui0/noguchi/ifood/val_images.npy")
 
-    train_dataset = FoodDataset("train", train_images, transform_train, training=True)
+    if args.clean:
+        if os.path.exists("/data/ugui0/noguchi/ifood/train_clean_labels.npy"):
+            clean_idx = np.load("/data/ugui0/noguchi/ifood/train_clean_labels.npy")
+        else:
+            with open("not_noisy_labels.txt", "r") as f:
+                clean_idx = f.readlines()
+            clean_idx = np.array([int(id[6:12]) for id in clean_idx])
+            np.save("/data/ugui0/noguchi/ifood/train_clean_labels.npy", clean_idx)
+        train_images = train_images[clean_idx]
+
+    train_dataset = FoodDataset("train", train_images, transform_train, training=True, clean=args.clean)
     val_dataset = FoodDataset("val", val_images, transform_train)
 
     # custom_mnist_from_csv = \
