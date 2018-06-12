@@ -392,30 +392,9 @@ def main():
     batchsize = 64
     use_BC = args.BC or args.BCp
     train_loader = torch.utils.data.DataLoader(dataset=train_dataset, batch_size=batchsize * (1 + use_BC),
-                                               shuffle=True, num_workers=8)
+                                               shuffle=True, num_workers=6)
 
-    val_loader = torch.utils.data.DataLoader(dataset=val_dataset, batch_size=batchsize, num_workers=8)
-
-    # 	train_labels = pd.read_csv('./data/labels/train_info.csv')
-
-
-
-
-
-
-
-    # 	train_loader = torch.utils.data.DataLoader(
-    #         datasets.__dict__[args.dataset.upper()](train_data_path, train=True, download=True,
-    #                          transform=transform_train),
-    #         batch_size=args.batch_size, shuffle=True, **kwargs)
-    #     val_loader = torch.utils.data.DataLoader(
-    #         datasets.__dict__[args.dataset.upper()](val_data_path, train=False, transform=transform_test),
-    #         batch_size=args.batch_size, shuffle=True, **kwargs)
-
-
-
-
-
+    val_loader = torch.utils.data.DataLoader(dataset=val_dataset, batch_size=batchsize, num_workers=6)
 
     # create model
     # model = WideResNet(args.layers, 211, args.widen_factor, dropRate=args.droprate)
