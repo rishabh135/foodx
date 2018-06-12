@@ -336,33 +336,6 @@ def main():
 
     assert (args.dataset in ["ifood", "food101N"])
 
-    if args.dataset == "ifood":
-        train_data_path = "/home/mil/gupta/ifood18/data/train_set/"
-        val_data_path = "/home/mil/gupta/ifood18/data/val_set/"
-
-        train_label = "/home/mil/gupta/ifood18/data/labels/train_info.csv"
-        val_label = "/home/mil/gupta/ifood18/data/labels/val_info.csv"
-    elif args.dataset == "food101N":
-        train_data_path = "/home/mil/gupta/ifood18/data/Food-101N_release/images"
-        val_data_path = "/home/mil/gupta/ifood18/data/Food-101N_release/images"
-        if not os.path.exists("/home/mil/noguchi/M1/ifood/foodx/data/food101N/train_info.csv"):
-            train_data = pd.read_csv("/home/mil/gupta/ifood18/data/Food-101N_release/meta/verified_train.tsv", sep='\t')
-            train_data = list(train_data[train_data["verification_label"] == 1]["class_name/key"])
-            val_data = pd.read_csv("/home/mil/gupta/ifood18/data/Food-101N_release/meta/verified_val.tsv", sep='\t')
-            val_data = list(val_data[val_data["verification_label"] == 1]["class_name/key"])
-            train_data += val_data
-            class_label = list(set([data.split("/")[0] for data in train_data]))
-
-            train_info = "\n".join([f"{data},{class_label.index(data.split('/')[0])}" for data in train_data])
-            with open("/home/mil/noguchi/M1/ifood/foodx/data/food101N/train_info.csv", "w") as f:
-                f.write(train_info)
-
-            val_info = "\n".join([f"{data},{class_label.index(data.split('/')[0])}" for data in val_data])
-            with open("/home/mil/noguchi/M1/ifood/foodx/data/food101N/val_info.csv", "w") as f:
-                f.write(val_info)
-
-        train_label = "/home/mil/noguchi/M1/ifood/foodx/data/food101N/train_info.csv"
-        val_label = "/home/mil/noguchi/M1/ifood/foodx/data/food101N/val_info.csv"
 
     for mode in ["train", "val"]:
         if not os.path.exists(f"/data/ugui0/noguchi/ifood/{mode}_images.npy"):
