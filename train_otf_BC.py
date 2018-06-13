@@ -62,6 +62,7 @@ from tensorboard_logger import configure, log_value
 
 import finetune
 import pretrainedmodels
+import dill
 
 # import torch
 # import torch.multiprocessing
@@ -411,7 +412,10 @@ def main():
     if args.resume:
         if os.path.isfile(args.resume):
             print("=> loading checkpoint '{}'".format(args.resume))
-            checkpoint = torch.load(args.resume)
+            # checkpoint = torch.load(args.resume)
+            with open(args.resume, "rb") as f:
+                checkpoint = dill.load(f)
+
             args.start_epoch = checkpoint['epoch']
             best_prec3 = checkpoint['best_prec3']
             model.load_state_dict(checkpoint['state_dict'])
@@ -448,15 +452,15 @@ def main():
             # evaluate on validation set
             prec3 = validate(val_loader, model, criterion, epoch)
 
-        # remember best prec@1 and save checkpoint
-        is_best = prec3 > best_prec3
-        best_prec3 = max(prec3, best_prec3)
-        save_checkpoint({
-            'epoch': epoch + 1,
-            'model': model,
-            'state_dict': model.state_dict(),
-            'best_prec3': best_prec3,
-        }, is_best)
+            # remember best prec@1 and save checkpoint
+            is_best = prec3 > best_prec3
+            best_prec3 = max(prec3, best_prec3)
+            save_checkpoint({
+                'epoch': epoch + 1,
+                'model': model,
+                'state_dict': model.state_dict(),
+                'best_prec3': best_prec3,
+            }, is_best)
 
     print('Best accuracy: ', best_prec3)
 
@@ -477,6 +481,8 @@ def train(train_loader, model, criterion, optimizer, epoch):
 
     end = time.time()
     for i, (inp, target, class_weight) in enumerate(train_loader):
+        if i == 10:
+            break
         target = target.cuda(async=True)
         inp = inp.cuda()
         class_weight = class_weight.cuda()
@@ -618,7 +624,11 @@ def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
     if not os.path.exists(directory):
         os.makedirs(directory)
     filename = directory + filename
-    torch.save(state, filename)
+
+    # torch.save(state, filename)
+    with open(filename, "wb") as f:
+        dill.dump(state, f)
+
     if is_best:
         shutil.copyfile(filename, 'runs/%s/' % (args.name) + 'model_best.pth.tar')
 
