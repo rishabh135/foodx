@@ -482,8 +482,6 @@ def train(train_loader, model, criterion, optimizer, epoch):
 
     end = time.time()
     for i, (inp, target, class_weight) in enumerate(train_loader):
-        if i == 10:
-            break
         target = target.cuda(async=True)
         inp = inp.cuda()
         class_weight = class_weight.cuda()
