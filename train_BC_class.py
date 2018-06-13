@@ -271,7 +271,6 @@ class FoodDataset(Dataset):
         else:
             cls = np.random.choice(211, 2, replace=False)
             image1 = np.random.choice(self.label_to_inds[cls[0]])
-            print(image1)
             image2 = np.random.choice(self.label_to_inds[cls[1]])
             image1, label1 = self.get_image_and_label(image1)
             image2, label2 = self.get_image_and_label(image2)
