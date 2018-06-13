@@ -265,13 +265,13 @@ class FoodDataset(Dataset):
         return len(self.labels)
 
     def __getitem__(self, idx):
+        np.random.seed()
         if self.mode == "val":
             return self.get_image_and_label(idx)
         else:
-            label = np.random.choice(211, 2, replace=False)
-            image1 = np.random.choice(self.label_to_inds[label[0]])
-            image2 = np.random.choice(self.label_to_inds[label[1]])
-            print(image1, image2)
+            cls = np.random.choice(211, 2, replace=False)
+            image1 = np.random.choice(self.label_to_inds[cls[0]])
+            image2 = np.random.choice(self.label_to_inds[cls[1]])
             image1, label1 = self.get_image_and_label(image1)
             image2, label2 = self.get_image_and_label(image2)
 
