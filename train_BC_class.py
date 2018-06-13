@@ -258,7 +258,7 @@ class FoodDataset(Dataset):
         if self.transform:
             image = self.transform(image)
         if self.args.BCp:
-            image = image - image.mean
+            image = image - image.mean()
         return (image, correct_label)
 
     def __len__(self):
