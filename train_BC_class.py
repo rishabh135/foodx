@@ -274,7 +274,7 @@ class FoodDataset(Dataset):
             image2 = np.random.choice(self.label_to_inds[cls[1]])
             image1, label1 = self.get_image_and_label(image1)
             image2, label2 = self.get_image_and_label(image2)
-
+            print(image1)
             if self.args.BC:
                 # mix
                 rand = np.random.rand()
