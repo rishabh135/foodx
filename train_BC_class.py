@@ -281,9 +281,9 @@ class FoodDataset(Dataset):
             elif self.args.BCp:
                 rand = np.random.rand()
 
-                sigma1 = np.std(image1)
+                sigma1 = image1.std()
                 image1 = image1 - image1.mean()
-                sigma2 = np.std(image2)
+                sigma2 = image2.std()
                 image2 = image2 - image2.mean()
 
                 p = 1 / (1 + sigma1 / (sigma2 + 1e-6) * (1 - rand) / rand)
