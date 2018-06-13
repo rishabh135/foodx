@@ -5,7 +5,6 @@ import os
 
 # os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"   # see issue #152
 # os.environ["CUDA_VISIBLE_DEVICES"]="1"
-import torch
 import pandas as pd
 from skimage import io, transform
 import numpy as np
@@ -44,6 +43,7 @@ import os
 import shutil
 import time
 import h5py
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.nn.parallel
