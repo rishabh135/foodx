@@ -518,8 +518,8 @@ def validate(val_loader, model, criterion, epoch):
     for i, (input, target) in enumerate(val_loader):
         batchsize = input.shape[0]
 
-        target = target.cuda(async=True)
         target = target.type(torch.FloatTensor)
+        target = target.cuda(async=True)
 
         input = input.cuda()
         input_var = torch.autograd.Variable(input, volatile=True)
