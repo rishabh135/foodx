@@ -282,9 +282,9 @@ class FoodDataset(Dataset):
                 rand = np.random.rand()
 
                 sigma1 = np.std(image1)
-                image1 = image1 - np.mean(image1)
+                image1 = image1 - image1.mean()
                 sigma2 = np.std(image2)
-                image2 = image2 - np.mean(image2)
+                image2 = image2 - image2.mean()
 
                 p = 1 / (1 + sigma1 / (sigma2 + 1e-6) * (1 - rand) / rand)
                 image = (p * image1 + (1 - p) * image2) / np.sqrt(p ** 2 + (1 - p) ** 2)
@@ -470,8 +470,8 @@ def train(train_loader, model, criterion, optimizer, epoch):
 
     end = time.time()
     for i, (inp, target) in enumerate(train_loader):
-        target = target.type(torch.FloatTensor)
         target = target.cuda()
+        target = target.type(torch.FloatTensor)
         inp = inp.cuda()
         batchsize = inp.shape[0]
 
@@ -518,9 +518,9 @@ def validate(val_loader, model, criterion, epoch):
     for i, (input, target) in enumerate(val_loader):
         batchsize = input.shape[0]
 
+        target = target.cuda(async=True)
         target = target.type(torch.FloatTensor)
 
-        target = target.cuda(async=True)
         input = input.cuda()
         class_weight = class_weight.cuda()
         input_var = torch.autograd.Variable(input, volatile=True)
