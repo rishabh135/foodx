@@ -412,9 +412,9 @@ def main():
     if args.resume:
         if os.path.isfile(args.resume):
             print("=> loading checkpoint '{}'".format(args.resume))
-            # checkpoint = torch.load(args.resume)
-            with open(args.resume, "rb") as f:
-                checkpoint = dill.load(f)
+            checkpoint = torch.load(args.resume)
+            # with open(args.resume, "rb") as f:
+            #     checkpoint = dill.load(f)
 
             args.start_epoch = checkpoint['epoch']
             best_prec3 = checkpoint['best_prec3']
@@ -625,9 +625,9 @@ def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
         os.makedirs(directory)
     filename = directory + filename
 
-    # torch.save(state, filename)
-    with open(filename, "wb") as f:
-        dill.dump(state, f)
+    torch.save(state, filename)
+    # with open(filename, "wb") as f:
+    #     dill.dump(state, f)
 
     if is_best:
         shutil.copyfile(filename, 'runs/%s/' % (args.name) + 'model_best.pth.tar')
