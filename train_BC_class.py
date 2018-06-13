@@ -261,6 +261,9 @@ class FoodDataset(Dataset):
             image = image - np.mean(image)
         return (image, correct_label)
 
+    def __len__(self):
+        return len(self.labels)
+
     def __getitem__(self, idx):
         if self.mode == "val":
             return self.get_image_and_label(idx)
