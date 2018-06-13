@@ -5,6 +5,7 @@ import os
 
 # os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"   # see issue #152
 # os.environ["CUDA_VISIBLE_DEVICES"]="1"
+import torch
 import pandas as pd
 from skimage import io, transform
 import numpy as np
@@ -43,7 +44,6 @@ import os
 import shutil
 import time
 import h5py
-import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.nn.parallel
@@ -384,9 +384,9 @@ def main():
 
     batchsize = args.batch_size
     train_loader = torch.utils.data.DataLoader(dataset=train_dataset, batch_size=batchsize,
-                                               shuffle=True, num_workers=8)
+                                               shuffle=True, num_workers=6)
 
-    val_loader = torch.utils.data.DataLoader(dataset=val_dataset, batch_size=batchsize, num_workers=8)
+    val_loader = torch.utils.data.DataLoader(dataset=val_dataset, batch_size=batchsize, num_workers=6)
 
     model = pretrainedmodels.__dict__[args.model](num_classes=1000, pretrained='imagenet')
     model = finetune.FineTuneModel(model)
