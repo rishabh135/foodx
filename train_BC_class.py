@@ -473,7 +473,7 @@ def train(train_loader, model, criterion, optimizer, epoch):
         target = target.cuda()
         inp = inp.cuda()
         batchsize = inp.shape[0]
-        target = target.type(torch.LongTensor)
+        target = target.type(torch.FloatTensor)
 
         input_var = torch.autograd.Variable(inp)
         target_var = torch.autograd.Variable(target)
@@ -518,7 +518,7 @@ def validate(val_loader, model, criterion, epoch):
     for i, (input, target) in enumerate(val_loader):
         batchsize = input.shape[0]
 
-        target = target.type(torch.LongTensor)
+        target = target.type(torch.FloatTensor)
 
         target = target.cuda(async=True)
         input = input.cuda()
