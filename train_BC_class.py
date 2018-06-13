@@ -522,7 +522,6 @@ def validate(val_loader, model, criterion, epoch):
         target = target.type(torch.FloatTensor)
 
         input = input.cuda()
-        class_weight = class_weight.cuda()
         input_var = torch.autograd.Variable(input, volatile=True)
         target_var = torch.autograd.Variable(target, volatile=True)
 
@@ -530,12 +529,7 @@ def validate(val_loader, model, criterion, epoch):
         with torch.no_grad():
             output = model(input_var)
 
-        if args.class_weight:
-            loss = (target_var * (torch.log(target_var + 1e-10) - F.log_softmax(output, 1))).sum(1) * \
-                   class_weight[:batchsize] * class_weight[-batchsize:]
-            loss = loss.mean()
-        else:
-            loss = criterion(F.log_softmax(output, 1), target_var) / batchsize
+        loss = criterion(F.log_softmax(output, 1), target_var) / batchsize
 
         # measure accuracy and record loss
         prec3 = accuracy(output.data, target, topk=(1, 3))
