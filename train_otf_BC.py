@@ -16,14 +16,14 @@ import cv2, sys
 from PIL import Image
 
 from scipy import ndimage, misc
-from skimage import data, transform
+# from skimage import data, transform
 
-import matplotlib.pyplot as plt
-import six.moves as sm
-import re
-import os
-from collections import defaultdict
-import PIL.Image
+# import matplotlib.pyplot as plt
+# import six.moves as sm
+# import re
+# import os
+# from collections import defaultdict
+# import PIL.Image
 
 try:
     from cStringIO import StringIO as BytesIO
