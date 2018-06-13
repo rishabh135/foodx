@@ -399,8 +399,8 @@ def main():
 
     # for training on multiple GPUs.
     # Use CUDA_VISIBLE_DEVICES=0,1 to specify which GPUs to use
-    # model = torch.nn.DataParallel(model).cuda()
-    model = model.cuda()
+    model = torch.nn.DataParallel(model).cuda()
+    # model = model.cuda()
 
     # optionally resume from a checkpoint
     if args.resume:
