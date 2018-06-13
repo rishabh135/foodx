@@ -486,6 +486,8 @@ def train(train_loader, model, criterion, optimizer, epoch):
         inp = inp.cuda()
         class_weight = class_weight.cuda()
         if args.BC:
+            if inp.shape[0] == 1:
+                break
             # mix
             target = target.type(torch.LongTensor)
             batchsize = inp.shape[0] // 2
@@ -494,6 +496,8 @@ def train(train_loader, model, criterion, optimizer, epoch):
             eye = torch.eye(211).cuda()
             target = eye[target[:batchsize]] * rand.view(-1, 1) + eye[target[-batchsize:]] * (1 - rand.view(-1, 1))
         elif args.BCp:
+            if inp.shape[0] == 1:
+                break
             # mix
             target = target.type(torch.LongTensor)
             batchsize = inp.shape[0] // 2
