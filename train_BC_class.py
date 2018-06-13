@@ -470,10 +470,10 @@ def train(train_loader, model, criterion, optimizer, epoch):
 
     end = time.time()
     for i, (inp, target) in enumerate(train_loader):
+        target = target.type(torch.FloatTensor)
         target = target.cuda()
         inp = inp.cuda()
         batchsize = inp.shape[0]
-        target = target.type(torch.FloatTensor)
 
         input_var = torch.autograd.Variable(inp)
         target_var = torch.autograd.Variable(target)
