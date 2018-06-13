@@ -294,7 +294,7 @@ class H5Dataset(Dataset):
 def main():
     global args, best_prec3
     args = parser.parse_args()
-    assert args.model in ["resnet152", "se_resnext101_32x4d"]
+    # assert args.model in ["resnet152", "se_resnext101_32x4d"]
     if args.tensorboard:
         configure("runs/%s" % (args.name))
 
