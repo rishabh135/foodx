@@ -380,8 +380,7 @@ def main():
     #                         transformations)
 
     batchsize = 64
-    use_BC = args.BC or args.BCp
-    train_loader = torch.utils.data.DataLoader(dataset=train_dataset, batch_size=batchsize * (1 + use_BC),
+    train_loader = torch.utils.data.DataLoader(dataset=train_dataset, batch_size=batchsize,
                                                shuffle=True, num_workers=8)
 
     val_loader = torch.utils.data.DataLoader(dataset=val_dataset, batch_size=batchsize, num_workers=8)
@@ -595,8 +594,8 @@ class AverageMeter(object):
 def adjust_learning_rate(optimizer, epoch):
     """Sets the learning rate to the initial LR divided by 5 at 60th, 120th and 160th epochs"""
     lr = args.lr * (
-        (0.2 ** int(epoch >= 100)) * (0.2 ** int(epoch >= 120)) * (0.2 ** int(epoch >= 160)) * (
-            0.2 ** int(epoch >= 200)))
+        (0.2 ** int(epoch >= 50)) * (0.2 ** int(epoch >= 60)) * (0.2 ** int(epoch >= 80)) * (
+            0.2 ** int(epoch >= 100)))
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr
 
