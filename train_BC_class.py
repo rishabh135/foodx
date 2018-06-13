@@ -258,7 +258,7 @@ class FoodDataset(Dataset):
         if self.transform:
             image = self.transform(image)
         if self.args.BCp:
-            image = image - np.mean(image)
+            image = image - image.mean
         return (image, correct_label)
 
     def __len__(self):
@@ -470,8 +470,8 @@ def train(train_loader, model, criterion, optimizer, epoch):
 
     end = time.time()
     for i, (inp, target) in enumerate(train_loader):
-        target = target.cuda()
         target = target.type(torch.FloatTensor)
+        target = target.cuda()
         inp = inp.cuda()
         batchsize = inp.shape[0]
 
