@@ -253,7 +253,6 @@ class FoodDataset(Dataset):
         image = self.images[idx]
         if self.flag:
             image = self.augment_images(image)
-            print("augment")
         correct_label = np.eye(211)[self.labels[idx]]
         # correct_label = correct_label.astype('int')
         if self.transform:
@@ -287,8 +286,10 @@ class FoodDataset(Dataset):
                 sigma2 = image2.std()
                 # image2 = image2 - image2.mean()
 
-                p = 1 / (1 + sigma1 / (sigma2 + 1e-6) * (1 - rand) / rand)
+                p = 1 / (1 + sigma1 / (sigma2 + 1e-6) * (1 - rand) / (rand + 1e-6))
                 image = (p * image1 + (1 - p) * image2) / np.sqrt(p ** 2 + (1 - p) ** 2)
+            else:
+                assert False, "non-BC is not supported"
             label = label1 * rand + label2 * (1 - rand)
             return image, label
 
@@ -471,6 +472,7 @@ def train(train_loader, model, criterion, optimizer, epoch):
 
     end = time.time()
     for i, (inp, target) in enumerate(train_loader):
+        print(inp[0][0], target[0])
         target = target.type(torch.FloatTensor)
         target = target.cuda()
         inp = inp.cuda()
