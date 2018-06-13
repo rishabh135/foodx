@@ -271,6 +271,7 @@ class FoodDataset(Dataset):
             label = np.random.choice(211, 2, replace=False)
             image1 = np.random.choice(self.label_to_inds[label[0]])
             image2 = np.random.choice(self.label_to_inds[label[1]])
+            print(image1, image2)
             image1, label1 = self.get_image_and_label(image1)
             image2, label2 = self.get_image_and_label(image2)
 
@@ -472,7 +473,6 @@ def train(train_loader, model, criterion, optimizer, epoch):
 
     end = time.time()
     for i, (inp, target) in enumerate(train_loader):
-        print(inp[0][0], target[0])
         target = target.type(torch.FloatTensor)
         target = target.cuda()
         inp = inp.cuda()
