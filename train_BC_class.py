@@ -253,6 +253,7 @@ class FoodDataset(Dataset):
         image = self.images[idx]
         if self.flag:
             image = self.augment_images(image)
+            print("augment")
         correct_label = np.eye(211)[self.labels[idx]]
         # correct_label = correct_label.astype('int')
         if self.transform:
@@ -282,9 +283,9 @@ class FoodDataset(Dataset):
                 rand = np.random.rand()
 
                 sigma1 = image1.std()
-                image1 = image1 - image1.mean()
+                # image1 = image1 - image1.mean()
                 sigma2 = image2.std()
-                image2 = image2 - image2.mean()
+                # image2 = image2 - image2.mean()
 
                 p = 1 / (1 + sigma1 / (sigma2 + 1e-6) * (1 - rand) / rand)
                 image = (p * image1 + (1 - p) * image2) / np.sqrt(p ** 2 + (1 - p) ** 2)
@@ -441,15 +442,15 @@ def main():
             # evaluate on validation set
             prec3 = validate(val_loader, model, criterion, epoch)
 
-        # remember best prec@1 and save checkpoint
-        is_best = prec3 > best_prec3
-        best_prec3 = max(prec3, best_prec3)
-        save_checkpoint({
-            'epoch': epoch + 1,
-            'model': model,
-            'state_dict': model.state_dict(),
-            'best_prec3': best_prec3,
-        }, is_best)
+            # remember best prec@1 and save checkpoint
+            is_best = prec3 > best_prec3
+            best_prec3 = max(prec3, best_prec3)
+            save_checkpoint({
+                'epoch': epoch + 1,
+                'model': model,
+                'state_dict': model.state_dict(),
+                'best_prec3': best_prec3,
+            }, is_best)
 
     print('Best accuracy: ', best_prec3)
 
