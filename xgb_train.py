@@ -157,8 +157,8 @@ def augment_images(image):
 	seq = iaa.Sequential(
 		[
 			# apply the following augmenters to most images
-			iaa.Fliplr(0.5), # horizontally flip 50% of all images
-			iaa.Flipud(0.2), # vertically flip 20% of all images
+			iaa.Fliplr(0.8), # horizontally flip 50% of all images
+			iaa.Flipud(0.5), # vertically flip 20% of all images
 			# crop images by -5% to 10% of their height/width
 			#sometimes(iaa.CropAndPad(
 			#	percent=(-0.05, 0.1),
@@ -166,8 +166,8 @@ def augment_images(image):
 			#	pad_cval=(0, 255)
 			#)),
 			sometimes(iaa.Affine(
-				scale={"x": (0.8, 1.2), "y": (0.8, 1.2)}, # scale images to 80-120% of their size, individually per axis
-				translate_percent={"x": (-0.2, 0.2), "y": (-0.2, 0.2)}, # translate by -20 to +20 percent (per axis)
+				scale={"x": (0.6, 1.4), "y": (0.6, 1.4)}, # scale images to 80-120% of their size, individually per axis
+				translate_percent={"x": (-0.4, 0.4), "y": (-0.4, 0.4)}, # translate by -20 to +20 percent (per axis)
 				rotate=(-90, 90), # rotate by -45 to +45 degrees
 				shear=(-20, 20), # shear by -16 to +16 degrees
 				order=[0, 1], # use nearest neighbour or bilinear interpolation (fast)
@@ -192,7 +192,7 @@ def augment_images(image):
 					#	iaa.EdgeDetect(alpha=(0.5, 1.0)),
 					#	iaa.DirectedEdgeDetect(alpha=(0.5, 1.0), direction=(0.0, 1.0)),
 					# ])),
-					#iaa.AdditiveGaussianNoise(loc=0, scale=(0.0, 0.05*255), per_channel=0.5), # add gaussian noise to images
+					iaa.AdditiveGaussianNoise(loc=0, scale=(0.0, 0.05*255), per_channel=0.5), # add gaussian noise to images
 					#iaa.OneOf([
 					#	iaa.Dropout((0.01, 0.1), per_channel=0.5), # randomly remove up to 10% of the pixels
 					#	iaa.CoarseDropout((0.03, 0.15), size_percent=(0.02, 0.05), per_channel=0.2),
@@ -291,7 +291,13 @@ class FoodDataset(Dataset):
 		self.labels = data.noisy_label.tolist()
 		# read addresses and labels from the 'train' folder
 		self.pic_names = data.name_of_pic.tolist()
-		# print("Length of val data is : ",len(val_data))
+# 		self.weights = (collections.Counter(self.pic_names).values())
+# 		print(self.weights)
+		
+# 		from numpy.random import choice
+# 		l = [choice(self.pic_names, p=weights) for _ in range(100)]
+# 		import collections
+# 		# print("Length of val data is : ",len(val_data))
 		
 		self.root_dir = root_dir
 		self.flag = training
@@ -433,7 +439,7 @@ model = best_model['model']
 kwargs = {'num_workers': 4, 'pin_memory': True}
 #assert(args.dataset == 'cifar10' or args.dataset == 'cifar100')
 
-train_data_path ="/home/mil/gupta/ifood18/data/train_set/"
+train_data_path ="/home/mil/gupta/ifood18/data/train_set_clean/"
 val_data_path ="/home/mil/gupta/ifood18/data/val_set/"
 
 train_label ="/home/mil/gupta/ifood18/data/labels/train_info.csv"
@@ -466,9 +472,9 @@ print(model)
 # 	adjust_learning_rate(optimizer, epoch+1)
 
 # train for one epoch
-train(train_loader, model, save_location = './data/xgboost_feat/train.npy', True)
+train(train_loader, model, save_location = './data/xgboost_feat/train_3_times.npy', True)
 # train for one epoch
-train(val_loader, model, save_location = './data/xgboost_feat/val.npy', training = False)
+train(val_loader, model, save_location = './data/xgboost_feat/val_times.npy', training = False)
 
 
 	
@@ -662,14 +668,14 @@ param['objective'] = 'multi:softprob'
 param['eta'] = 0.1
 param['max_depth'] = 3
 param['subsample'] = 0.6
-param['silent'] = 1
+#param['silent'] = 1
 param['nthread'] = 16
 param['gpu_id'] = 0
-param['max_bin'] = 128
+param['max_bin'] = 256
 param['tree_method'] = "gpu_hist"
 param['gamma']=0
 param['eval_metric'] = "mlogloss"
-num_round = 200
+num_round = 500
 param['num_class'] = args.class_size
 
 
