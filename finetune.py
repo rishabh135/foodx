@@ -14,9 +14,9 @@ class FineTuneModel(nn.Module):
 
         # Everything except the last linear layer
         self.features = nn.Sequential(*list(original_model.children())[:-1])
-        h_dim = original_model.last_linear.in_features
+        self.h_dim = original_model.last_linear.in_features
         self.classifier = nn.Sequential(
-            nn.Linear(h_dim, 211)
+            nn.Linear(self.h_dim, 211)
         )
         self.fix_params()
 
@@ -31,7 +31,7 @@ class FineTuneModel(nn.Module):
 
     def forward(self, x):
         y = self.features(x)
-        y = self.classifier(y.view(-1, 2048))
+        y = self.classifier(y.view(-1, self.))
         return y
 
 
