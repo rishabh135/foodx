@@ -254,7 +254,7 @@ class FoodDataset(Dataset):
         if self.args.model in ["inceptionv4"]:
             image = misc.imresize(image, (342, 342))
         elif self.args.model in ["nasnetalarge"]:
-            image = misc.imresize(image, (342, 342))
+            image = misc.imresize(image, (378, 378))
 
         if self.flag:
             image = self.augment_images(image)
@@ -307,6 +307,7 @@ def main():
     # normalize = transforms.Normalize(mean=[x/255.0 for x in [125.3, 123.0, 113.9]],
     #								 std=[x/255.0 for x in [63.0, 62.1, 66.7]])
     if args.model in ["inceptionv4"]:
+        print(args.model)
         crop_size = 299
     elif args.model in ["nasnetalarge"]:
         crop_size = 331
