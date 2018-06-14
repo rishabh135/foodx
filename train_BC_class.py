@@ -76,7 +76,7 @@ parser.add_argument('--start-epoch', default=0, type=int,
                     help='manual epoch number (useful on restarts)')
 parser.add_argument('-b', '--batch-size', default=64, type=int,
                     help='mini-batch size (default: 128)')
-parser.add_argument('--lr', '--learning-rate', default=0.001, type=float,
+parser.add_argument('--lr', '--learning-rate', default=0.002, type=float,
                     help='initial learning rate')
 parser.add_argument('--momentum', default=0.9, type=float, help='momentum')
 parser.add_argument('--nesterov', default=True, type=bool, help='nesterov momentum')
@@ -105,6 +105,9 @@ parser.add_argument('--class_weight', help='Use class weight', action='store_tru
 parser.add_argument('--model', default="resnet152", help='Use BC learning')
 parser.add_argument('--debug', '-d', help='debug mode', action='store_true')
 parser.add_argument('--clean', help='use clean dataset', action='store_true')
+
+parser.add_argument('--num_workers', '-w', default=6, type=int,
+                    help='num of workers')
 
 parser.set_defaults(augment=True)
 
@@ -397,9 +400,9 @@ def main():
 
     batchsize = args.batch_size
     train_loader = torch.utils.data.DataLoader(dataset=train_dataset, batch_size=batchsize,
-                                               shuffle=True, num_workers=6)
+                                               shuffle=True, num_workers=args.num_workers)
 
-    val_loader = torch.utils.data.DataLoader(dataset=val_dataset, batch_size=batchsize, num_workers=6)
+    val_loader = torch.utils.data.DataLoader(dataset=val_dataset, batch_size=batchsize, num_workers=args.num_workers)
 
     model = pretrainedmodels.__dict__[args.model](num_classes=1000, pretrained='imagenet')
     model = finetune.FineTuneModel(model)
