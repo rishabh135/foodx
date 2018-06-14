@@ -14,8 +14,9 @@ class FineTuneModel(nn.Module):
 
         # Everything except the last linear layer
         self.features = nn.Sequential(*list(original_model.children())[:-1])
+        h_dim = original_model.last_linear.in_features
         self.classifier = nn.Sequential(
-            nn.Linear(2048, 211)
+            nn.Linear(h_dim, 211)
         )
         self.fix_params()
 
@@ -25,7 +26,6 @@ class FineTuneModel(nn.Module):
             p.requires_grad = False
 
     def train_params(self):
-        # Freeze those weights
         for p in self.features.parameters():
             p.requires_grad = True
 
@@ -36,11 +36,12 @@ class FineTuneModel(nn.Module):
 
 
 if __name__ == "__main__":
-    print(print(pretrainedmodels.model_names))
-    model_name = "nasnetalarge"  # "resnet152"
-    print(pretrainedmodels.pretrained_settings[model_name])
-    model = pretrainedmodels.__dict__[model_name](num_classes=1000, pretrained='imagenet')
-    print(list(model.children())[-3:])
-    model = FineTuneModel(model)
+    for model_name in pretrainedmodels.model_names:
+    # model_name = "nasnetalarge"  # "resnet152"
+        if "imagenet" in pretrainedmodels.pretrained_settings[model_name]:
+            print(model_name, pretrainedmodels.pretrained_settings[model_name]["imagenet"]["input_size"])
+    # model = pretrainedmodels.__dict__[model_name](num_classes=1000, pretrained='imagenet')
+    # print(list(model.children())[-3:])
+    # model = FineTuneModel(model)
     # model.train_params()
     # print(list(filter(lambda p: p.requires_grad, model.parameters())))
