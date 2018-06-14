@@ -13,25 +13,30 @@ class FineTuneModel(nn.Module):
         super(FineTuneModel, self).__init__()
 
         # Everything except the last linear layer
-        self.features = nn.Sequential(*list(original_model.children())[:-1])
-        self.h_dim = original_model.last_linear.in_features
-        self.classifier = nn.Sequential(
-            nn.Linear(self.h_dim, 211)
-        )
-        self.fix_params()
+        #
+        # self.features = nn.Sequential(*list(original_model.children())[:-1])
+        # self.h_dim = original_model.last_linear.in_features
+        # self.classifier = nn.Sequential(
+        #     nn.Linear(self.h_dim, 211)
+        # )
+        # self.fix_params()
+        self.model = original_model
+        dim_feats = original_model.last_linear.in_features
+        self.model.last_linear = nn.Linear(dim_feats, 211)
 
     def fix_params(self):
         # Freeze those weights
-        for p in self.features.parameters():
+        for p in self.model.parameters():
             p.requires_grad = False
 
     def train_params(self):
-        for p in self.features.parameters():
+        for p in self.model.parameters():
             p.requires_grad = True
 
     def forward(self, x):
-        y = self.features(x)
-        y = self.classifier(y.view(-1, self.h_dim))
+        # y = self.features(x)
+        # y = self.classifier(y.view(-1, self.h_dim))
+        self.model(x)
         return y
 
 
