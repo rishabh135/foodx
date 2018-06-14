@@ -31,7 +31,7 @@ class FineTuneModel(nn.Module):
 
     def forward(self, x):
         y = self.features(x)
-        y = self.classifier(y.view(-1, self.))
+        y = self.classifier(y.view(-1, self.h_dim))
         return y
 
 
