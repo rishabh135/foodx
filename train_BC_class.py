@@ -251,6 +251,11 @@ class FoodDataset(Dataset):
 
     def get_image_and_label(self, idx):
         image = self.images[idx]
+        if self.args.model in ["inceptionv4"]:
+            image = misc.imresize(image, (342, 342))
+        elif self.args.model in ["nasnetalarge"]:
+            image = misc.imresize(image, (342, 342))
+
         if self.flag:
             image = self.augment_images(image)
         correct_label = np.eye(211)[self.labels[idx]]
@@ -301,7 +306,12 @@ def main():
     # Data loading code
     # normalize = transforms.Normalize(mean=[x/255.0 for x in [125.3, 123.0, 113.9]],
     #								 std=[x/255.0 for x in [63.0, 62.1, 66.7]])
-
+    if args.model in ["inceptionv4"]:
+        crop_size = 299
+    elif args.model in ["nasnetalarge"]:
+        crop_size = 331
+    else:
+        crop_size = 224
     if args.augment:
         transform_train = transforms.Compose([
             # transforms.ToTensor(),
@@ -310,7 +320,7 @@ def main():
             #					(4,4,4,4),mode='reflect').data.squeeze()),
             transforms.ToPILImage(),
             # transforms.Resize(192,192),
-            transforms.RandomCrop(224),
+            transforms.RandomCrop(crop_size),
             transforms.RandomHorizontalFlip(),
             transforms.ToTensor()
             # normalize,
@@ -324,7 +334,7 @@ def main():
 
     transform_test = transforms.Compose([transforms.ToPILImage(),
                                          # transforms.Resize(192,192),
-                                         transforms.CenterCrop(224),
+                                         transforms.CenterCrop(crop_size),
                                          # transforms.RandomHorizontalFlip(),
                                          transforms.ToTensor()
                                          # normalize
