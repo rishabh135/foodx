@@ -102,6 +102,8 @@ parser.add_argument('--validate_freq', '-valf', default=2, type=int,
 parser.add_argument('--BC', help='Use BC learning', action='store_true')
 parser.add_argument('--BCp', help='Use BC learning', action='store_true')
 parser.add_argument('--model', default="resnet152", help='Use BC learning')
+parser.add_argument('--out_name', default='out', type=str,
+                    help='name of output npy file')
 
 parser.set_defaults(augment=True)
 
@@ -246,7 +248,7 @@ class FoodDataset(Dataset):
 def main():
     global args, best_prec3
     args = parser.parse_args()
-    args.output_text = "/home/mil/noguchi/M1/ifood/foodx/runs/result_test_noguchi"
+    args.output_text = f"/home/mil/noguchi/M1/ifood/foodx/runs/result_{args.out_name}"
     start = time.time()
 
     if args.augment:
@@ -273,7 +275,7 @@ def main():
 
     test_csv = "/home/mil/gupta/ifood18/data/labels/test_info.csv"
 
-    test_dataset = FoodDataset(test_data_path, test_csv, transform_train, training=False)
+    test_dataset = FoodDataset(test_data_path, test_csv, transform_train, training=True)
 
     batchsize = 384
 
@@ -314,7 +316,7 @@ def main():
             output += out
             outputs.append(out.cpu().numpy())
 
-        np.save("/data/ugui0/noguchi/ifood/outputs.npy", np.array(outputs))
+        np.save(f"/data/ugui0/noguchi/ifood/{args.out_name}.npy", np.array(outputs))
         _, pred = output.topk(3, 1, True, True)
         pred = pred.cpu().data
         name = test_dataset.pic_names
