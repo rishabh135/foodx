@@ -264,6 +264,13 @@ def main():
     # normalize = transforms.Normalize(mean=[x/255.0 for x in [125.3, 123.0, 113.9]],
     #								 std=[x/255.0 for x in [63.0, 62.1, 66.7]])
 
+    if args.model in ["inceptionv4"]:
+        print(args.model)
+        crop_size = 299
+    elif args.model in ["nasnetalarge"]:
+        crop_size = 331
+    else:
+        crop_size = 224
     if args.augment:
         transform_train = transforms.Compose([
             # transforms.ToTensor(),
@@ -272,7 +279,7 @@ def main():
             #					(4,4,4,4),mode='reflect').data.squeeze()),
             transforms.ToPILImage(),
             # transforms.Resize(192,192),
-            transforms.RandomCrop(224),
+            transforms.RandomCrop(crop_size),
             transforms.RandomHorizontalFlip(),
             transforms.ToTensor()
             # normalize,
@@ -339,7 +346,7 @@ def main():
     outputs = [0 for i in range(len(models))]
     probs = [0 for i in range(len(models))]
 
-    [model.eval() for model in models]
+    [model.cuda().eval() for model in models]
 
     for epoch in range(0, 200):
         with torch.no_grad():
