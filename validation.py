@@ -380,9 +380,9 @@ def validate(val_loader, models, criterion, epoch):
         input_var = torch.autograd.Variable(input, volatile=True)
 
         # compute output
-        for model in models:
+        for j,model in enumerate(models):
             output = model(input_var)
-            outputs[i].append(output.data)
+            outputs[j].append(output.data)
 
     return [torch.cat(output) for output in outputs]
 
@@ -429,3 +429,28 @@ def accuracy(output, target, topk=(1,)):
 
 if __name__ == '__main__':
     main()
+
+"""
+import numpy as np
+import glob
+import tqdm
+import numpy as np
+import glob
+import tqdm
+
+target = np.load("val_labels.npy")
+
+def accuracy(pred, targ):
+    top3 = pred.argsort(axis=1)[:, -3:]
+    accu= np.sum(top3 == targ[:, np.newaxis]) / targ.shape[0]
+    return accu
+
+def ens1(score):
+    return np.mean(score, axis=0)
+
+val_score_files = sorted(glob.glob("*_val_score.npy"))
+val_prob_files = sorted(glob.glob("*_val_prob.npy"))
+val_score = [np.load(file) for file in val_score_files]
+val_prob = [np.load(file) for file in val_prob_files]
+accuracy(ens1(val_score), target)
+"""
