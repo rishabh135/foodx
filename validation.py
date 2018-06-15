@@ -340,7 +340,7 @@ def main():
     probs = [0 for i in range(len(models))]
     for epoch in range(0, 200):
         for i, model in enumerate(models):
-            prec3, out = validate(val_loader, model, criterion, epoch)
+            out = validate(val_loader, model, criterion, epoch)
             outputs[i] += out
             probs[i] += F.softmax(out)
             resume = args.resume.split(" + ")[i].split("/")[-1]
@@ -355,9 +355,6 @@ def main():
 
 def validate(val_loader, model, criterion, epoch):
     """Perform validation on the validation set"""
-    batch_time = AverageMeter()
-    # losses = AverageMeter()
-    top3 = AverageMeter()
 
     # switch to evaluate mode
     model.eval()
@@ -383,23 +380,8 @@ def validate(val_loader, model, criterion, epoch):
         with torch.no_grad():
             output = model(input_var)
             outputs.append(output.data)
-        # measure accuracy and record loss
-        prec3 = accuracy(output.data, target, topk=(1, 3))
-        top3.update(prec3, input.size(0))
 
-        # measure elapsed time
-        batch_time.update(time.time() - end)
-        end = time.time()
-
-        if i % args.print_freq == 0:
-            print('Test: [{0}/{1}]\t'
-                  'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
-                  'Prec@3 {top3.val:.3f} ({top3.avg:.3f})'.format(
-                i, len(val_loader), batch_time=batch_time,
-                top3=top3))
-
-    print(' * Prec@3 {top3.avg:.3f}'.format(top3=top3))
-    return top3.avg, torch.cat(outputs)
+    return torch.cat(outputs)
 
 
 class AverageMeter(object):
