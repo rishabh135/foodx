@@ -105,6 +105,10 @@ parser.add_argument('--model', default="resnet152", help='Use BC learning')
 parser.add_argument('--out_name', default='out', type=str,
                     help='name of output npy file')
 parser.add_argument('--mode', default="val", type=str, help='val or test')
+parser.add_argument('--debug', '-d', help='debug mode', action='store_true')
+
+parser.add_argument('--num_workers', '-w', default=6, type=int,
+                    help='num of workers')
 
 parser.set_defaults(augment=True)
 
@@ -289,7 +293,7 @@ def main():
 
     batchsize = 768
 
-    val_loader = torch.utils.data.DataLoader(dataset=val_dataset, batch_size=batchsize, num_workers=6)
+    val_loader = torch.utils.data.DataLoader(dataset=val_dataset, batch_size=batchsize, num_workers=args.num_workers)
 
     # model = pretrainedmodels.__dict__[args.model](num_classes=1000, pretrained='imagenet')
     # model = finetune.FineTuneModel(model)
