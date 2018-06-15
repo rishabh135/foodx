@@ -338,11 +338,15 @@ def main():
 
     outputs = [0 for i in range(len(models))]
     probs = [0 for i in range(len(models))]
+
+    [model.eval() for model in models]
+
     for epoch in range(0, 200):
-        for i, model in enumerate(models):
-            out = validate(val_loader, model, criterion, epoch)
-            outputs[i] += out
-            probs[i] += F.softmax(out)
+        with torch.no_grad():
+            out = validate(val_loader, models, criterion, epoch)
+            for i in range(len(models)):
+                outputs[i] += out[i]
+                probs[i] += F.softmax(out[i])
             resume = args.resume.split(" + ")[i].split("/")[-2]
             np.save(f"/data/ugui0/noguchi/ifood/{resume}_{args.mode}_score.npy", outputs[i].cpu().data / (epoch + 1))
             np.save(f"/data/ugui0/noguchi/ifood/{resume}_{args.mode}_prob.npy", probs[i].cpu().data / (epoch + 1))
@@ -355,14 +359,14 @@ def main():
                 #     print('Best accuracy: ', best_prec3)
 
 
-def validate(val_loader, model, criterion, epoch):
+def validate(val_loader, models, criterion, epoch):
     """Perform validation on the validation set"""
 
     # switch to evaluate mode
-    model.eval()
+    # model.eval()
 
     end = time.time()
-    outputs = []
+    outputs = [[] for i in range(len(models))]
     for i, input in enumerate(val_loader):
         if args.mode == "val":
             input, target = input
@@ -380,11 +384,11 @@ def validate(val_loader, model, criterion, epoch):
         input_var = torch.autograd.Variable(input, volatile=True)
 
         # compute output
-        with torch.no_grad():
+        for model in models:
             output = model(input_var)
-            outputs.append(output.data)
+            outputs[i].append(output.data)
 
-    return torch.cat(outputs)
+    return [torch.cat(output) for output in outputs]
 
 
 class AverageMeter(object):
