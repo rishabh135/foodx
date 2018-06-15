@@ -218,11 +218,11 @@ class FoodDataset(Dataset):
         self.mode = mode
         if os.path.exists(f"/data/ugui0/noguchi/ifood/{mode}_images.npy"):
             self.images = images
+            self.pic_names = np.load(f"/data/ugui0/noguchi/ifood/{mode}_pic_names.npy")
             if self.mode == "val":
                 self.labels = np.load(f"/data/ugui0/noguchi/ifood/{mode}_labels.npy")
                 self.label_weight = np.load(f"/data/ugui0/noguchi/ifood/{mode}_label_weight.npy")
                 # read addresses and labels from the 'train' folder
-                self.pic_names = np.load(f"/data/ugui0/noguchi/ifood/{mode}_pic_names.npy")
 
     def get_image_and_label(self, idx):
         image = self.images[idx]
