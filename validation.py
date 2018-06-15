@@ -348,6 +348,8 @@ def main():
             np.save(f"/data/ugui0/noguchi/ifood/{resume}_{args.mode}_prob.npy", probs[i].cpu().data / (epoch + 1))
             if args.mode == "val":
                 print(resume, epoch, accuracy(outputs[i], target, (1, 3)))
+            elif args.mode == "test":
+                print(resume, epoch)
 
                 # if args.mode == "val":
                 #     print('Best accuracy: ', best_prec3)
