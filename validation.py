@@ -343,9 +343,9 @@ def main():
             out = validate(val_loader, model, criterion, epoch)
             outputs[i] += out
             probs[i] += F.softmax(out)
-            resume = args.resume.split(" + ")[i].split("/")[-1]
-            np.save(f"/data/ugui0/noguchi/ifood/{resume}_score.npy", outputs[i].cpu().data / (epoch + 1))
-            np.save(f"/data/ugui0/noguchi/ifood/{resume}_prob.npy", probs[i].cpu().data / (epoch + 1))
+            resume = args.resume.split(" + ")[i].split("/")[-2]
+            np.save(f"/data/ugui0/noguchi/ifood/{resume}_{args.mode}_score.npy", outputs[i].cpu().data / (epoch + 1))
+            np.save(f"/data/ugui0/noguchi/ifood/{resume}_{args.mode}_prob.npy", probs[i].cpu().data / (epoch + 1))
             if args.mode == "val":
                 print(resume, epoch, accuracy(outputs[i], target, (1, 3)))
 
