@@ -334,7 +334,7 @@ def main():
     if args.mode == "val":
         target = torch.from_numpy(np.array(val_dataset.labels))
         eye = torch.eye(211)
-        target = eye[target]
+        target = eye[target].cuda()
 
     outputs = [0 for i in range(len(models))]
     probs = [0 for i in range(len(models))]
