@@ -330,23 +330,23 @@ def main():
     if args.mode == "val":
         target = torch.from_numpy(np.array(val_dataset.labels))
         eye = torch.eye(211)
-        target = eye[target].cuda()
+        target = eye[target]
 
-    output = 0
-    prob = 0
+    outputs = [0 for i in range(len(models))]
+    probs = [0 for i in range(len(models))]
     for epoch in range(0, 200):
-        for model in models:
+        for i, model in enumerate(models):
             prec3, out = validate(val_loader, model, criterion, epoch)
-            output += out
-            prob += F.softmax(out)
-        np.save(f"/data/ugui0/noguchi/ifood/{args.out_name}_score.npy", output.cpu().data / (epoch + 1))
-        np.save(f"/data/ugui0/noguchi/ifood/{args.out_name}_prob.npy", prob.cpu().data / (epoch + 1))
-        if args.mode == "val":
-            print("aug accuracy", epoch, accuracy(output, target, (1, 3)))
-            best_prec3 = max(prec3, best_prec3)
-            
-    if args.mode == "val":
-        print('Best accuracy: ', best_prec3)
+            outputs[i] += out
+            probs[i] += F.softmax(out)
+            resume = args.resume.split(" + ")[i].split("/")[-1]
+            np.save(f"/data/ugui0/noguchi/ifood/{resume}_score.npy", outputs[i].cpu().data / (epoch + 1))
+            np.save(f"/data/ugui0/noguchi/ifood/{resume}_prob.npy", probs[i].cpu().data / (epoch + 1))
+            if args.mode == "val":
+                print("resume", epoch, accuracy(outputs[i], target, (1, 3)))
+
+                # if args.mode == "val":
+                #     print('Best accuracy: ', best_prec3)
 
 
 def validate(val_loader, model, criterion, epoch):
@@ -366,7 +366,6 @@ def validate(val_loader, model, criterion, epoch):
             eye = torch.eye(211)
             target = eye[target]
             target = target.cuda(async=True)
-            target_var = torch.autograd.Variable(target, volatile=True)
 
         if args.BCp:
             # subtract mean from image
