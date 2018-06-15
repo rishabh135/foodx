@@ -34,9 +34,16 @@ class FineTuneModel(nn.Module):
             p.requires_grad = True
 
     def forward(self, x):
-        # y = self.features(x)
-        # y = self.classifier(y.view(-1, self.h_dim))
-        y = self.model(x)
+        if hasattr(self, "model"):
+            y = self.model(x)
+        elif hasattr(self, "h_dim"):
+            y = self.features(x)
+            y = self.classifier(y.view(-1, self.h_dim))
+
+        else:
+            y = self.features(x)
+            y = self.classifier(y.view(-1, 2048))
+
         return y
 
 
