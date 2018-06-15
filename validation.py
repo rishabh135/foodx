@@ -369,11 +369,7 @@ def validate(val_loader, models, criterion, epoch):
     outputs = [[] for i in range(len(models))]
     for i, input in enumerate(val_loader):
         if args.mode == "val":
-            input, target = input
-            target = target.type(torch.LongTensor)
-            eye = torch.eye(211)
-            target = eye[target]
-            target = target.cuda(async=True)
+            input, _ = input
 
         if args.BCp:
             # subtract mean from image
