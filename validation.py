@@ -354,9 +354,9 @@ def main():
             for i in range(len(models)):
                 outputs[i] += out[i]
                 probs[i] += F.softmax(out[i])
-            resume = args.resume.split(" + ")[i].split("/")[-2]
-            np.save(f"/data/ugui0/noguchi/ifood/{resume}_{args.mode}_score.npy", outputs[i].cpu().data / (epoch + 1))
-            np.save(f"/data/ugui0/noguchi/ifood/{resume}_{args.mode}_prob.npy", probs[i].cpu().data / (epoch + 1))
+                resume = args.resume.split(" + ")[i].split("/")[-2]
+                np.save(f"/data/ugui0/noguchi/ifood/{resume}_{args.mode}_score.npy", outputs[i].cpu().data / (epoch + 1))
+                np.save(f"/data/ugui0/noguchi/ifood/{resume}_{args.mode}_prob.npy", probs[i].cpu().data / (epoch + 1))
             if args.mode == "val":
                 print(resume, epoch, accuracy(outputs[i], target, (1, 3)))
             elif args.mode == "test":
@@ -438,26 +438,5 @@ if __name__ == '__main__':
     main()
 
 """
-import numpy as np
-import glob
-import tqdm
-import numpy as np
-import glob
-import tqdm
 
-target = np.load("val_labels.npy")
-
-def accuracy(pred, targ):
-    top3 = pred.argsort(axis=1)[:, -3:]
-    accu= np.sum(top3 == targ[:, np.newaxis]) / targ.shape[0]
-    return accu
-
-def ens1(score):
-    return np.mean(score, axis=0)
-
-val_score_files = sorted(glob.glob("*_val_score.npy"))
-val_prob_files = sorted(glob.glob("*_val_prob.npy"))
-val_score = [np.load(file) for file in val_score_files]
-val_prob = [np.load(file) for file in val_prob_files]
-accuracy(ens1(val_score), target)
 """
