@@ -240,9 +240,9 @@ class FoodDataset(Dataset):
             image = image - image.mean()
         if self.mode == "val":
             correct_label = np.eye(211)[self.labels[idx]]
+            return (image, correct_label)
         else:
-            correct_label = None
-        return (image, correct_label)
+            return (image)
 
     def __len__(self):
         return len(self.pic_names)
@@ -363,8 +363,9 @@ def validate(val_loader, model, criterion, epoch):
 
     end = time.time()
     outputs = []
-    for i, (input, target) in enumerate(val_loader):
+    for i, input in enumerate(val_loader):
         if args.mode == "val":
+            input, target = input
             target = target.type(torch.LongTensor)
             eye = torch.eye(211)
             target = eye[target]
