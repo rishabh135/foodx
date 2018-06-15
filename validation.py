@@ -245,7 +245,7 @@ class FoodDataset(Dataset):
         return (image, correct_label)
 
     def __len__(self):
-        return len(self.labels)
+        return len(self.pic_names)
 
     def __getitem__(self, idx):
         np.random.seed()
