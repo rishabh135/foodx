@@ -296,7 +296,7 @@ def main():
     else:
         val_images = np.load(f"/data/ugui0/noguchi/ifood/{args.mode}_images.npy")
 
-    val_dataset = FoodDataset(args.mode, val_images, transform_train, augment=True, args=args)
+    val_dataset = FoodDataset(args.mode, val_images, transform_train, augment=False, args=args)
 
     batchsize = 768
 
@@ -314,6 +314,7 @@ def main():
     # model = model.cuda()
 
     # optionally resume from a checkpoint
+    
     models = []
     for resume in args.resume.split(" + "):
         if resume:
